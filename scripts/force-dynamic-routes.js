@@ -29,12 +29,18 @@ let count = 0;
 for (const file of files) {
   const text = fs.readFileSync(file, 'utf8');
 
-  // Déjà dynamique ? On ne touche pas
+  // ⛔ Ne pas toucher aux Client Components
+  if (/^['"]use client['"]/m.test(text)) continue;
+
+  // ⛔ Ne pas toucher si un `dynamic` est déjà défini en export
   if (/export\s+const\s+dynamic\s*=/.test(text)) continue;
 
-  // La page/route lit la base ou accède à des données dynamiques ?
-  const needsDynamic =
-    /nextUrl\.searchParams|request\.cookies|request\.headers|cookies\(|headers\(|searchParams|getDB\(|getCloudflareContext/.test(text);
+  // ⛔ Ne pas toucher si `dynamic` est importé depuis next/dynamic
+  if (/import\s+dynamic\s+from\s+['"]next\/dynamic['"]/.test(text)) continue;
+  if (/import\s+\{[^}]*\bdynamic\b[^}]*\}\s+from/.test(text)) continue;
+
+  // ✅ Ne cibler que les Server Components qui lisent la DB
+  const needsDynamic = /getDB\(|getCloudflareContext/.test(text);
 
   if (needsDynamic) {
     fs.writeFileSync(
