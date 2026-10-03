@@ -27,6 +27,9 @@ jobs:
 
       - name: Build with OpenNext
         run: npx opennextjs-cloudflare build
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SECRET_KEY: ${{ secrets.SUPABASE_SECRET_KEY }}
 
       - name: Deploy to Cloudflare
         uses: cloudflare/wrangler-action@v3
