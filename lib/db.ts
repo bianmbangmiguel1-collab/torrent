@@ -28,7 +28,8 @@ function prepareStatement(
 
 export async function getDB(): Promise<DBAdapter> {
   const { env } = await getCloudflareContext({ async: true })
-  const d1 = env.DB
+  // ✅ Type casting pour contourner l'incompatibilité wrangler types / OpenNext
+  const d1 = (env as any).DB as D1Database
 
   return {
     async get<T = any>(sql: string, params: unknown[] = []): Promise<T | undefined> {
@@ -77,4 +78,3 @@ export async function recordProductView(
     [userId, productId]
   )
 }
-
