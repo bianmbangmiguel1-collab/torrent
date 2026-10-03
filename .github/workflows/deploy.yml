@@ -25,6 +25,9 @@ jobs:
       - name: Generate Cloudflare types
         run: npx wrangler types
 
+      - name: Force dynamic routes
+        run: node scripts/force-dynamic-routes.js
+
       - name: Build with OpenNext
         run: npx opennextjs-cloudflare build
         env:
