@@ -33,6 +33,9 @@ jobs:
         env:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_SECRET_KEY: ${{ secrets.SUPABASE_SECRET_KEY }}
+          NEXT_TELEMETRY_DISABLED: 1
+          UV_THREADPOOL_SIZE: 1
+          NEXT_PRIVATE_WORKER_THREADS: 1
 
       - name: Deploy to Cloudflare
         uses: cloudflare/wrangler-action@v3
