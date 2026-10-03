@@ -1,3 +1,5 @@
+export const dynamic = 'force-dynamic'
+
 // app/avant/page.tsx
 import { getDB } from '@/lib/db';
 import { getActiveCampaigns } from '@/lib/campaign-service';
@@ -5,7 +7,7 @@ import type { Slide } from '@/lib/types';
 import { getAIRecommendations, getTrendingProducts } from '@/lib/ai-recommendations';
 import Link from 'next/link';
 import { headers } from 'next/headers';
-import dynamic from 'next/dynamic';
+import nextDynamic from 'next/dynamic';
 import AppHeaderWrapper from '@/components/AppHeaderWrapper';
 import {
   Star, ChevronRight, Sparkles, Tag, TrendingUp, Shield, Truck,
@@ -20,25 +22,24 @@ import {
 // IMPORTS DYNAMIQUES (composants améliorés)
 // ============================================================
 
-const SearchBar = dynamic(() => import('@/components/home/SearchBar'), { ssr: false });
-const CarouselHero = dynamic(() => import('@/components/home/CarouselHero'), { ssr: false });
-const ProductSection = dynamic(() => import('@/components/home/ProductSection'), { ssr: false });
-const CategoryShowcase = dynamic(() => import('@/components/home/CategoryShowcase'), { ssr: false });
-const Features = dynamic(() => import('@/components/home/Features'), { ssr: false });
-const Testimonials = dynamic(() => import('@/components/home/Testimonials'), { ssr: false });
-const Newsletter = dynamic(() => import('@/components/home/Newsletter'), { ssr: false });
-const ReviewsShowcase = dynamic(() => import('@/components/home/ReviewsShowcase'), { ssr: false });
-const NewsletterAgent = dynamic(() => import('@/components/NewsletterAgent'), { ssr: false });
+const SearchBar = nextDynamic(() => import('@/components/home/SearchBar'), { ssr: false });
+const CarouselHero = nextDynamic(() => import('@/components/home/CarouselHero'), { ssr: false });
+const ProductSection = nextDynamic(() => import('@/components/home/ProductSection'), { ssr: false });
+const CategoryShowcase = nextDynamic(() => import('@/components/home/CategoryShowcase'), { ssr: false });
+const Features = nextDynamic(() => import('@/components/home/Features'), { ssr: false });
+const Testimonials = nextDynamic(() => import('@/components/home/Testimonials'), { ssr: false });
+const Newsletter = nextDynamic(() => import('@/components/home/Newsletter'), { ssr: false });
+const ReviewsShowcase = nextDynamic(() => import('@/components/home/ReviewsShowcase'), { ssr: false });
+const NewsletterAgent = nextDynamic(() => import('@/components/NewsletterAgent'), { ssr: false });
 
-// 🆕 Nouveaux composants à créer (je vous les donne plus bas)
-const FlashSaleBanner = dynamic(() => import('@/components/home/FlashSaleBanner'), { ssr: false });
-const SocialProofTicker = dynamic(() => import('@/components/home/SocialProofTicker'), { ssr: false });
-const TrustBadges = dynamic(() => import('@/components/home/TrustBadges'), { ssr: false });
-const LiveActivity = dynamic(() => import('@/components/home/LiveActivity'), { ssr: false });
-const ProductBundleDeal = dynamic(() => import('@/components/home/ProductBundleDeal'), { ssr: false });
-const BeforeAfterValue = dynamic(() => import('@/components/home/BeforeAfterValue'), { ssr: false });
-const LimitedStockAlert = dynamic(() => import('@/components/home/LimitedStockAlert'), { ssr: false });
-const MoneyBackGuarantee = dynamic(() => import('@/components/home/MoneyBackGuarantee'), { ssr: false });
+const FlashSaleBanner = nextDynamic(() => import('@/components/home/FlashSaleBanner'), { ssr: false });
+const SocialProofTicker = nextDynamic(() => import('@/components/home/SocialProofTicker'), { ssr: false });
+const TrustBadges = nextDynamic(() => import('@/components/home/TrustBadges'), { ssr: false });
+const LiveActivity = nextDynamic(() => import('@/components/home/LiveActivity'), { ssr: false });
+const ProductBundleDeal = nextDynamic(() => import('@/components/home/ProductBundleDeal'), { ssr: false });
+const BeforeAfterValue = nextDynamic(() => import('@/components/home/BeforeAfterValue'), { ssr: false });
+const LimitedStockAlert = nextDynamic(() => import('@/components/home/LimitedStockAlert'), { ssr: false });
+const MoneyBackGuarantee = nextDynamic(() => import('@/components/home/MoneyBackGuarantee'), { ssr: false });
 
 // ============================================================
 // TYPES
@@ -238,7 +239,7 @@ export default async function HomePage() {
   `);
   const hasRealReviews = (reviewCountResult?.count || 0) > 0;
 
-  // 🆕 11. Statistiques globales pour la crédibilité
+  // 11. Statistiques globales pour la crédibilité
   const globalStats = await db.get<{ total_orders: number; total_users: number; avg_rating: number }>(`
     SELECT 
       (SELECT COUNT(*) FROM orders WHERE payment_status = 'paid') as total_orders,
@@ -246,7 +247,7 @@ export default async function HomePage() {
       (SELECT AVG(rating) FROM reviews WHERE status = 'approved') as avg_rating
   `);
 
-  // 🆕 12. Produits "flash sale" (top 3 promos)
+  // 12. Produits "flash sale" (top 3 promos)
   const flashSaleProducts = await db.all<Product>(`
     SELECT p.*,
       (SELECT url FROM product_images WHERE product_id = p.id AND is_main = 1 LIMIT 1) as main_image,
@@ -259,7 +260,7 @@ export default async function HomePage() {
     LIMIT 3
   `);
 
-  // 🆕 13. Bundle deal (produits aléatoires)
+  // 13. Bundle deal (produits aléatoires)
   const bundleProducts = await db.all<Product>(`
     SELECT p.*,
       (SELECT url FROM product_images WHERE product_id = p.id AND is_main = 1 LIMIT 1) as main_image
@@ -296,22 +297,18 @@ export default async function HomePage() {
     <div className="min-h-screen bg-gradient-to-b from-gray-50 to-white overflow-x-hidden">
       <AppHeaderWrapper />
 
-      {/* 🆕 TICKER SOCIAL PROOF — défile en haut */}
       <SocialProofTicker />
 
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 sm:py-6 md:py-8">
 
-        {/* 🆕 BANDEAU FLASH SALE */}
         {flashSaleProducts.length > 0 && (
           <FlashSaleBanner products={flashSaleProducts} />
         )}
 
-        {/* Barre de recherche */}
         <div className="mb-4 sm:mb-6 md:mb-8">
           <SearchBar />
         </div>
 
-        {/* Messages saisonniers */}
         {seasonalMessages.length > 0 && (
           <div className="mb-4 sm:mb-6 md:mb-8">
             <div className="flex flex-wrap gap-2 sm:gap-3 justify-center">
@@ -331,22 +328,18 @@ export default async function HomePage() {
           </div>
         )}
 
-        {/* 🆕 BADGES DE CONFIANCE */}
         <TrustBadges
           orders={globalStats?.total_orders || 0}
           users={globalStats?.total_users || 0}
           rating={globalStats?.avg_rating || 0}
         />
 
-        {/* Carousel principal */}
         <section className="mb-6 sm:mb-8 md:mb-12">
           <CarouselHero slides={slides} autoplayInterval={5} />
         </section>
 
-        {/* 🆕 ACTIVITÉ EN DIRECT (X personnes regardent) */}
         <LiveActivity />
 
-        {/* Catégories */}
         <div className="mb-6 sm:mb-8 md:mb-12">
           <CategoryShowcase
             categories={categoriesWithIcons}
@@ -357,10 +350,8 @@ export default async function HomePage() {
           />
         </div>
 
-        {/* 🆕 ALERTE STOCK LIMITÉ */}
         <LimitedStockAlert products={popularProducts.slice(0, 3)} />
 
-        {/* Nouveautés */}
         <ProductSection
           title="✨ Nouveautés"
           subtitle="Découvrez les derniers produits ajoutés"
@@ -371,19 +362,12 @@ export default async function HomePage() {
           itemsPerRow={{ mobile: 2, tablet: 3, desktop: 4, large: 5 }}
         />
 
-        
-
-        {/* 🆕 BON PLAN BUNDLE */}
         {bundleProducts.length >= 2 && (
           <ProductBundleDeal products={bundleProducts} />
         )}
 
-       
-
-        {/* 🆕 AVANT / APRÈS (valeur apportée) */}
         <BeforeAfterValue />
 
-        {/* Avis clients */}
         {hasRealReviews ? (
           <div className="mb-6 sm:mb-8 md:mb-12">
             <ReviewsShowcase
@@ -401,21 +385,17 @@ export default async function HomePage() {
           </div>
         )}
 
-        {/* Fonctionnalités */}
         <div className="mb-6 sm:mb-8 md:mb-12">
           <Features />
         </div>
 
-        {/* 🆕 GARANTIE SATISFAIT OU REMBOURSÉ */}
         <MoneyBackGuarantee />
 
-        {/* Newsletter */}
         <div className="mb-6 sm:mb-8 md:mb-12">
           <Newsletter />
         </div>
       </main>
 
-      {/* Footer amélioré */}
       <footer className="bg-gray-900 text-white mt-8 md:mt-16">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8 md:py-12">
           <div className="grid grid-cols-2 md:grid-cols-4 gap-6 md:gap-8">
