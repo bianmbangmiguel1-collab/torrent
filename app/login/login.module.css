@@ -1,0 +1,547 @@
+/* app/login/login.module.css */
+
+/* ==========================================================
+   PAGE : FOND BLEU CLAIR
+   ========================================================== */
+.page {
+  min-height: 100vh;
+  background: linear-gradient(135deg, #eff6ff 0%, #dbeafe 55%, #bfdbfe 100%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+  position: relative;
+  overflow: hidden;
+}
+
+/* ==========================================================
+   DÉCOR : BULLES BLEUES
+   ========================================================== */
+.bgDecor {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 0;
+  overflow: hidden;
+}
+
+.blob {
+  position: absolute;
+  border-radius: 50%;
+  filter: blur(100px);
+  opacity: 0.55;
+}
+
+.blob1 {
+  width: 420px;
+  height: 420px;
+  background: radial-gradient(circle, #bfdbfe 0%, transparent 70%);
+  top: -140px;
+  left: -120px;
+}
+
+.blob2 {
+  width: 380px;
+  height: 380px;
+  background: radial-gradient(circle, #c7d2fe 0%, transparent 70%);
+  bottom: -120px;
+  right: -100px;
+}
+
+.blob3 {
+  width: 300px;
+  height: 300px;
+  background: radial-gradient(circle, #dbeafe 0%, transparent 70%);
+  top: 40%;
+  left: 55%;
+  opacity: 0.4;
+}
+
+.gridPattern {
+  position: absolute;
+  inset: 0;
+  background-image:
+    linear-gradient(rgba(37, 99, 235, 0.06) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(37, 99, 235, 0.06) 1px, transparent 1px);
+  background-size: 40px 40px;
+  mask-image: radial-gradient(ellipse at center, black 25%, transparent 70%);
+  -webkit-mask-image: radial-gradient(ellipse at center, black 25%, transparent 70%);
+}
+
+/* ==========================================================
+   CARTE BLANCHE
+   ========================================================== */
+.container {
+  position: relative;
+  z-index: 1;
+  max-width: 420px;
+  width: 100%;
+  background: #ffffff;
+  border: 1px solid #dbeafe;
+  border-radius: 24px;
+  padding: 40px 36px;
+  box-shadow:
+    0 1px 2px rgba(30, 64, 175, 0.06),
+    0 12px 32px rgba(30, 64, 175, 0.12),
+    0 32px 64px rgba(30, 64, 175, 0.08);
+}
+
+/* ==========================================================
+   BOUTON RETOUR
+   ========================================================== */
+.backButton {
+  position: absolute;
+  top: 18px;
+  left: 18px;
+  background: #eff6ff;
+  border: 1px solid #bfdbfe;
+  border-radius: 12px;
+  width: 38px;
+  height: 38px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #1d4ed8;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.backButton:hover {
+  background: #2563eb;
+  border-color: #2563eb;
+  color: #ffffff;
+  box-shadow: 0 4px 12px rgba(37, 99, 235, 0.35);
+}
+
+/* ==========================================================
+   EN-TÊTE
+   ========================================================== */
+.header {
+  text-align: center;
+  margin-bottom: 22px;
+  margin-top: 8px;
+}
+
+.logoContainer {
+  width: 56px;
+  height: 56px;
+  margin: 0 auto 14px;
+  padding: 8px;
+  background: #eff6ff;
+  border: 1px solid #bfdbfe;
+  border-radius: 16px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.logoImage {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
+
+.headerBadge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 12px;
+  background: #dbeafe;
+  border: 1px solid #93c5fd;
+  border-radius: 30px;
+  font-size: 11px;
+  font-weight: 700;
+  color: #1e40af;
+  margin-bottom: 14px;
+  letter-spacing: 0.02em;
+}
+
+.headerBadge svg {
+  color: #1d4ed8;
+}
+
+.header h1 {
+  font-size: 26px;
+  font-weight: 800;
+  color: #1e3a8a;
+  margin: 0 0 6px 0;
+  letter-spacing: -0.03em;
+}
+
+.header p {
+  color: #1d4ed8;
+  font-size: 14px;
+  margin: 0;
+  font-weight: 500;
+}
+
+/* ==========================================================
+   FEATURES
+   ========================================================== */
+.features {
+  display: flex;
+  gap: 10px;
+  margin-bottom: 22px;
+  flex-wrap: wrap;
+  justify-content: center;
+}
+
+.featureItem {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  background: #eff6ff;
+  border: 1px solid #bfdbfe;
+  border-radius: 20px;
+  color: #1e40af;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.featureItem svg {
+  color: #2563eb;
+  flex-shrink: 0;
+}
+
+/* ==========================================================
+   ERREUR
+   ========================================================== */
+.errorMessage {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  background: #fef2f2;
+  border: 1px solid #fecaca;
+  color: #991b1b;
+  padding: 12px 14px;
+  border-radius: 12px;
+  margin-bottom: 16px;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.errorMessage svg {
+  flex-shrink: 0;
+  color: #dc2626;
+}
+
+/* ==========================================================
+   FORMULAIRE
+   ========================================================== */
+.form {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.formGroup {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.formGroup label {
+  color: #1e3a8a;
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.inputWrapper {
+  position: relative;
+  display: flex;
+  align-items: center;
+  background: #f8fbff;
+  border: 1.5px solid #bfdbfe;
+  border-radius: 12px;
+  transition: all 0.2s ease;
+}
+
+.inputWrapper:hover {
+  border-color: #93c5fd;
+  background: #ffffff;
+}
+
+.inputWrapperFocused {
+  border-color: #2563eb !important;
+  background: #ffffff !important;
+  box-shadow: 0 0 0 4px rgba(37, 99, 235, 0.15);
+}
+
+.inputIcon {
+  position: absolute;
+  left: 14px;
+  color: #60a5fa;
+  pointer-events: none;
+  transition: color 0.2s ease;
+}
+
+.inputWrapperFocused .inputIcon {
+  color: #2563eb;
+}
+
+.inputWrapper input {
+  width: 100%;
+  padding: 13px 42px 13px 42px;
+  background: transparent;
+  border: none;
+  border-radius: 12px;
+  color: #1e3a8a;
+  font-size: 14px;
+  font-weight: 600;
+  outline: none;
+}
+
+.inputWrapper input:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.inputWrapper input::placeholder {
+  color: #93c5fd;
+  font-weight: 400;
+}
+
+.togglePassword {
+  position: absolute;
+  right: 12px;
+  background: none;
+  border: none;
+  color: #60a5fa;
+  cursor: pointer;
+  padding: 6px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 8px;
+  transition: all 0.2s ease;
+}
+
+.togglePassword:hover:not(:disabled) {
+  color: #1d4ed8;
+  background: #eff6ff;
+}
+
+.togglePassword:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* ==========================================================
+   OPTIONS
+   ========================================================== */
+.formOptions {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 13px;
+  margin: 2px 0;
+}
+
+.rememberMe {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: #1e40af;
+  cursor: pointer;
+  font-weight: 600;
+  transition: color 0.2s ease;
+}
+
+.rememberMe:hover {
+  color: #1e3a8a;
+}
+
+.rememberMe input[type='checkbox'] {
+  accent-color: #2563eb;
+  width: 16px;
+  height: 16px;
+  cursor: pointer;
+}
+
+.rememberMe input[type='checkbox']:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.forgotPassword {
+  color: #2563eb;
+  text-decoration: none;
+  font-weight: 700;
+  transition: color 0.2s;
+  font-size: 13px;
+}
+
+.forgotPassword:hover {
+  color: #1d4ed8;
+  text-decoration: underline;
+}
+
+/* ==========================================================
+   BOUTON PRINCIPAL
+   ========================================================== */
+.loginButton {
+  padding: 14px 24px;
+  background: linear-gradient(135deg, #2563eb 0%, #1e40af 100%);
+  border: none;
+  border-radius: 12px;
+  color: #ffffff;
+  font-size: 14px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  margin-top: 4px;
+  box-shadow:
+    0 4px 14px rgba(37, 99, 235, 0.4),
+    0 2px 4px rgba(37, 99, 235, 0.25);
+  letter-spacing: 0.02em;
+}
+
+.loginButton:hover:not(:disabled) {
+  box-shadow:
+    0 8px 22px rgba(37, 99, 235, 0.5),
+    0 4px 8px rgba(37, 99, 235, 0.3);
+  background: linear-gradient(135deg, #1d4ed8 0%, #1e3a8a 100%);
+}
+
+.loginButton:disabled {
+  opacity: 0.65;
+  cursor: not-allowed;
+  box-shadow: none;
+}
+
+.loading {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.loader {
+  width: 16px;
+  height: 16px;
+  border: 2px solid rgba(255, 255, 255, 0.35);
+  border-top-color: #ffffff;
+  border-radius: 50%;
+  animation: spin 0.7s linear infinite;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* ==========================================================
+   LIEN INSCRIPTION
+   ========================================================== */
+.links {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  margin-top: 20px;
+  padding-top: 20px;
+  border-top: 1px solid #dbeafe;
+}
+
+.signupLink {
+  text-align: center;
+  color: #1e40af;
+  font-size: 13px;
+  margin: 0;
+  font-weight: 500;
+}
+
+.signupLink a {
+  color: #2563eb;
+  text-decoration: none;
+  font-weight: 800;
+  transition: color 0.2s;
+}
+
+.signupLink a:hover {
+  color: #1e40af;
+  text-decoration: underline;
+}
+
+/* ==========================================================
+   SUCCÈS
+   ========================================================== */
+.successMessage {
+  text-align: center;
+  padding: 24px 0;
+}
+
+.successIconWrap {
+  width: 72px;
+  height: 72px;
+  margin: 0 auto 16px;
+  border-radius: 50%;
+  background: #f0fdf4;
+  border: 2px solid #86efac;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #16a34a;
+}
+
+.successMessage h2 {
+  font-size: 22px;
+  font-weight: 800;
+  color: #1e3a8a;
+  margin: 0 0 6px 0;
+  letter-spacing: -0.02em;
+}
+
+.successMessage p {
+  color: #1d4ed8;
+  margin: 0;
+  font-size: 14px;
+  font-weight: 500;
+}
+
+/* ==========================================================
+   RESPONSIVE
+   ========================================================== */
+@media (max-width: 480px) {
+  .page {
+    padding: 16px;
+  }
+
+  .container {
+    padding: 32px 22px;
+    border-radius: 20px;
+  }
+
+  .header h1 {
+    font-size: 22px;
+  }
+
+  .formOptions {
+    flex-direction: column;
+    gap: 10px;
+    align-items: flex-start;
+  }
+
+  .features {
+    flex-direction: column;
+    align-items: center;
+  }
+
+  .featureItem {
+    width: 100%;
+    justify-content: center;
+  }
+
+  .backButton {
+    top: 14px;
+    left: 14px;
+    width: 34px;
+    height: 34px;
+  }
+}

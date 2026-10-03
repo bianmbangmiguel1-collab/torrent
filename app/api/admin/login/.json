@@ -1,0 +1,10 @@
+{
+  "dependencies": {
+    "jose": "^4.14.4",
+    "bcryptjs": "^2.4.3",
+    "@prisma/client": "^5.6.0"
+  },
+  "devDependencies": {
+    "@types/bcryptjs": "^2.4.6"
+  }
+}

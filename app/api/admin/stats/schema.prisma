@@ -1,0 +1,65 @@
+model User {
+  id        String    @id @default(cuid())
+  email     String    @unique
+  name      String
+  passwordHash String
+  role      String    @default("user")
+  isAdmin   Boolean   @default(false)
+  isActive  Boolean   @default(true)
+  isFirstLogin Boolean @default(true)
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  
+  orders    Order[]
+  activities Activity[]
+}
+
+model Product {
+  id        String    @id @default(cuid())
+  title     String
+  description String?
+  price     Float
+  category  String?
+  images    String[]
+  stock     Int       @default(0)
+  sales     Int       @default(0)
+  revenue   Float     @default(0)
+  isActive  Boolean   @default(true)
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  
+  orderItems OrderItem[]
+}
+
+model Order {
+  id          String    @id @default(cuid())
+  orderNumber String    @unique
+  userId      String
+  user        User      @relation(fields: [userId], references: [id])
+  totalAmount Float
+  status      String    @default("pending")
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  
+  items OrderItem[]
+}
+
+model OrderItem {
+  id        String    @id @default(cuid())
+  orderId   String
+  order     Order     @relation(fields: [orderId], references: [id])
+  productId String
+  product   Product   @relation(fields: [productId], references: [id])
+  quantity  Int
+  price     Float
+  total     Float
+}
+
+model Activity {
+  id        String    @id @default(cuid())
+  action    String
+  userId    String?
+  user      User?     @relation(fields: [userId], references: [id])
+  details   Json?
+  createdAt DateTime  @default(now())
+}

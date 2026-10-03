@@ -1,0 +1,43 @@
+{
+	"name": "torrentwist",
+	"main": ".open-next/worker.js",
+	"compatibility_date": "2026-10-01",
+	"compatibility_flags": [
+		"nodejs_compat"
+	],
+	"account_id": "d1faa1a56faa8b226dcfa45f515b8408",
+	"assets": {
+		"directory": ".open-next/assets",
+		"binding": "ASSETS"
+	},
+	"vars": {
+		"ADMIN_EMAIL": "admin@torrenttwist.com",
+		"ADMIN_PASSWORD": "Admin123!",
+		"CHARIOW_API_KEY": "sk_c9m0utis_951f950f85e9fbe674d299037d0e3fdc",
+		"CHARIOW_API_URL": "https://api.chariow.com/v1",
+		"CHARIOW_GENERIC_PRODUCT_ID": "https://ztggdzzz.mychariow.com/prd_f8xlppea",
+		"CHARIOW_WEBHOOK_SECRET": "whsec_Co4pVua7QzxVywDXyZycMSq5wA4jVQyglpxX5GOp",
+		"CORS_ORIGIN": "https://torrentwist.com",
+		"DEEPSEEK_API_KEY": "sk-c51d544453194cbb8bd02c193124d749",
+		"FEDAPAY_SECRET_KEY": "sk_live_vK9dNoAN1tQN6XQ5rIHMspZT",
+		"JWT_SECRET": "torrenttwist_super_secret_key_2026",
+		"NEXT_PUBLIC_API_URL": "https://torrentwist.com",
+		"OPENROUTER_API_KEY": "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",
+		"SUPABASE_SECRET_KEY": "sb_secret_fBBMUQmcmyLTQBfzZy3xJw_FUQut8V1"
+	},
+	"d1_databases": [
+		{
+			"binding": "DB",
+			"database_name": "torrenttwist-db",
+			"database_id": "e97bc0a0-127a-4d94-8917-c76f5f779f55"
+		}
+	],
+
+	"kv_namespaces": [
+		{
+			"binding": "NEXT_INC_CACHE_KV",
+			"id": "653b9832d8604fa997eaa7b7b4bd0dc7",
+			
+		}
+	]
+}

@@ -1,0 +1,16 @@
+{
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "lint": "next lint",
+    "fix": "ts-node scripts/fix-all.ts",
+    "fix:file": "ts-node scripts/fix-file.ts",
+    "fix:quick": "ts-node scripts/fix-all.ts --quick"
+  },
+  "dependencies": {
+    "axios": "^1.19.0",
+    "dotenv": "^17.4.2",
+    "openai": "^7.5.0"
+  }
+}
