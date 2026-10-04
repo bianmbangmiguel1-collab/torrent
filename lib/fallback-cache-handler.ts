@@ -2,7 +2,6 @@
 import { Redis } from '@upstash/redis/cloudflare';
 import { getCloudflareContext } from '@opennextjs/cloudflare';
 
-// Types attendus par OpenNext
 type CacheEntryType = 'cache' | 'fetch' | 'composable';
 
 interface CacheEntry {
@@ -10,16 +9,22 @@ interface CacheEntry {
   lastModified: number;
 }
 
+interface CustomEnv {
+  NEXT_INC_CACHE_KV: KVNamespace;
+  UPSTASH_REDIS_REST_URL: string;
+  UPSTASH_REDIS_REST_TOKEN: string;
+}
+
 export default async function createFallbackCacheHandler() {
-  // Récupérer l'environnement Cloudflare au moment de l'appel
-  const { env } = await getCloudflareContext({ async: true });
+  const ctx = await getCloudflareContext({ async: true });
+  const env = ctx.env as unknown as CustomEnv;
 
   const redis = new Redis({
-    url: env.UPSTASH_REDIS_REST_URL as string,
-    token: env.UPSTASH_REDIS_REST_TOKEN as string,
+    url: env.UPSTASH_REDIS_REST_URL,
+    token: env.UPSTASH_REDIS_REST_TOKEN,
   });
 
-  const kv = env.NEXT_INC_CACHE_KV as KVNamespace;
+  const kv = env.NEXT_INC_CACHE_KV;
   const prefix = 'torrentwist:cache:';
   const ONE_YEAR = 60 * 60 * 24 * 365;
 
