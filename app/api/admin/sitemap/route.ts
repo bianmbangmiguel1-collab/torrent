@@ -2,8 +2,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import * as jose from 'jose'
 import { getDB } from '@/lib/db'
-import fs from 'fs/promises'
-import path from 'path'
+import { uploadToSupabase } from '@/lib/storage'
 
 const JWT_SECRET = process.env.JWT_SECRET || 'torrenttwist_super_secret_key_2026'
 
@@ -48,19 +47,15 @@ export async function GET(request: NextRequest) {
   try {
     const { db } = await requireAdmin(request)
     const { searchParams } = new URL(request.url)
-    const format = searchParams.get('format') // 'xml' ou 'json'
+    const format = searchParams.get('format')
 
     const baseUrl =
       process.env.NODE_ENV === 'production'
-        ? 'https://torrenttwist.com'
+        ? 'https://torrentwist.com'
         : 'http://localhost:3000'
 
-    // ============================================================
-    // 1. Récupérer toutes les URLs
-    // ============================================================
     const urls: Array<{ loc: string; lastmod: string; changefreq: string; priority: number; type: string; title: string }> = []
 
-    // Pages statiques
     const staticPages = [
       { path: '/', priority: 1.0, changefreq: 'daily', title: 'Accueil' },
       { path: '/products', priority: 0.9, changefreq: 'daily', title: 'Produits' },
@@ -82,7 +77,6 @@ export async function GET(request: NextRequest) {
       })
     }
 
-    // Produits publiés
     let products: any[] = []
     try {
       products = await db.all(
@@ -103,7 +97,6 @@ export async function GET(request: NextRequest) {
       })
     }
 
-    // Catégories
     let categories: any[] = []
     try {
       categories = await db.all(
@@ -122,7 +115,6 @@ export async function GET(request: NextRequest) {
       })
     }
 
-    // Pages CMS
     let pages: any[] = []
     try {
       pages = await db.all(
@@ -142,7 +134,7 @@ export async function GET(request: NextRequest) {
     }
 
     // ============================================================
-    // 2. Génération XML
+    // Génération XML
     // ============================================================
     const generateXML = () => {
       let xml = '<?xml version="1.0" encoding="UTF-8"?>\n'
@@ -159,7 +151,6 @@ export async function GET(request: NextRequest) {
       return xml
     }
 
-    // Si format=xml, retourner directement le XML
     if (format === 'xml') {
       const xml = generateXML()
       return new NextResponse(xml, {
@@ -170,9 +161,6 @@ export async function GET(request: NextRequest) {
       })
     }
 
-    // ============================================================
-    // 3. Stats
-    // ============================================================
     const stats = {
       totalUrls: urls.length,
       products: products.length,
@@ -182,7 +170,6 @@ export async function GET(request: NextRequest) {
       cmsPages: pages.length,
     }
 
-    // Répartition par type
     const byType = urls.reduce((acc: any, u) => {
       acc[u.type] = (acc[u.type] || 0) + 1
       return acc
@@ -207,7 +194,7 @@ export async function GET(request: NextRequest) {
 }
 
 // ============================================================
-// POST /api/admin/sitemap — Écrire le fichier sitemap.xml
+// POST /api/admin/sitemap — Upload du sitemap vers Supabase Storage
 // ============================================================
 export async function POST(request: NextRequest) {
   try {
@@ -215,10 +202,9 @@ export async function POST(request: NextRequest) {
 
     const baseUrl =
       process.env.NODE_ENV === 'production'
-        ? 'https://torrenttwist.com'
+        ? 'https://torrentwist.com'
         : 'http://localhost:3000'
 
-    // Reconstruction rapide (simplifié)
     const staticPages = ['/', '/products', '/categories', '/about', '/contact', '/faq']
     const products = await db.all(`SELECT slug, updated_at FROM products WHERE status = 'published' OR status = 'active' OR status IS NULL`)
     const categories = await db.all(`SELECT slug FROM categories WHERE is_active = 1`)
@@ -241,18 +227,25 @@ export async function POST(request: NextRequest) {
     }
     xml += '</urlset>'
 
-    // Écrire dans public/sitemap.xml
-    const publicDir = path.join(process.cwd(), 'public')
-    await fs.mkdir(publicDir, { recursive: true })
-    await fs.writeFile(path.join(publicDir, 'sitemap.xml'), xml, 'utf-8')
+    // ============================================================
+    // Upload vers Supabase Storage (au lieu de fs.writeFile)
+    // ============================================================
+    const buffer = Buffer.from(xml, 'utf-8')
+    const sitemapUrl = await uploadToSupabase(
+      'sitemap.xml',
+      buffer,
+      'application/xml'
+    )
 
-    console.log('✅ Sitemap écrit dans public/sitemap.xml')
+    console.log('✅ Sitemap uploadé sur Supabase:', sitemapUrl)
 
     return NextResponse.json({
       success: true,
-      message: 'Sitemap généré et sauvegardé',
+      message: 'Sitemap généré et sauvegardé sur Supabase Storage',
       path: '/sitemap.xml',
+      supabaseUrl: sitemapUrl,
       urlCount: staticPages.length + products.length + categories.length + pages.length,
+      xml,
     })
   } catch (error: any) {
     console.error('❌ POST /api/admin/sitemap:', error)
@@ -260,7 +253,10 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Non authentifié' }, { status: 401 })
     if (error.message === 'NOT_ADMIN')
       return NextResponse.json({ error: 'Admin requis' }, { status: 403 })
-    return NextResponse.json({ error: 'Erreur serveur' }, { status: 500 })
+    return NextResponse.json(
+      { error: error.message || 'Erreur serveur' },
+      { status: 500 }
+    )
   }
 }
 

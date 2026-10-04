@@ -3,8 +3,9 @@ export const dynamic = 'force-dynamic';
 // app/api/download/route.ts
 import { NextRequest, NextResponse } from 'next/server';
 import { getDB } from '@/lib/db';
-import path from 'path';
-import fs from 'fs';
+import { getDownloadUrl } from '@/lib/storage';
+
+export const runtime = 'nodejs';
 
 export async function GET(req: NextRequest) {
   try {
@@ -23,29 +24,38 @@ export async function GET(req: NextRequest) {
     );
 
     if (!order) {
-      return NextResponse.json({ error: 'Lien invalide ou expiré' }, { status: 404 });
+      return NextResponse.json(
+        { error: 'Lien invalide ou expiré' },
+        { status: 404 }
+      );
     }
 
+    if (!order.file_path) {
+      return NextResponse.json(
+        { error: 'Fichier introuvable pour ce produit' },
+        { status: 404 }
+      );
+    }
+
+    // Incrémenter le compteur
     await db.run(
       'UPDATE orders SET download_count = download_count + 1 WHERE id = ?',
       [order.id]
     );
 
-    const filePath = path.join(process.cwd(), 'public', order.file_path);
-    if (!fs.existsSync(filePath)) {
-      return NextResponse.json({ error: 'Fichier introuvable' }, { status: 404 });
-    }
+    // Générer une URL signée valide 5 minutes
+    const filename = order.file_path.split('/').pop() || 'download';
+    const signedUrl = await getDownloadUrl(order.file_path, 300, filename);
 
-    const fileBuffer = fs.readFileSync(filePath);
-    return new NextResponse(fileBuffer, {
-      status: 200,
-      headers: {
-        'Content-Type': 'application/octet-stream',
-        'Content-Disposition': `attachment; filename="${path.basename(filePath)}"`,
-      },
-    });
-  } catch (error) {
+    console.log(`✅ Redirection téléchargement: ${order.file_path}`);
+
+    // Rediriger vers Supabase (pas de fs.readFileSync)
+    return NextResponse.redirect(signedUrl);
+  } catch (error: any) {
     console.error('❌ Erreur téléchargement:', error);
-    return NextResponse.json({ error: 'Erreur serveur' }, { status: 500 });
+    return NextResponse.json(
+      { error: error?.message || 'Erreur serveur' },
+      { status: 500 }
+    );
   }
 }

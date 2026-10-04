@@ -2,23 +2,19 @@ export const dynamic = 'force-dynamic';
 
 // app/api/media/route.ts
 import { NextRequest, NextResponse } from 'next/server';
-import fs from 'fs';
-import path from 'path';
+import { randomUUID } from 'crypto';
 import { getDB } from '@/lib/db';
-// import { getServerSession } from 'next-auth/next';
-// import { authOptions } from '@/lib/auth';
+import {
+  uploadImageToSupabase,
+  deleteImageFromSupabase,
+  extractKeyFromPublicUrl,
+} from '@/lib/storage';
 
 // ------------------------------------------------------------
 // GET : Récupérer la liste des médias
 // ------------------------------------------------------------
 export async function GET(request: NextRequest) {
   try {
-    // Vérification d'authentification (optionnel)
-    // const session = await getServerSession(authOptions);
-    // if (!session || (session.user as any)?.role !== 'admin') {
-    //   return NextResponse.json({ error: 'Non autorisé' }, { status: 401 });
-    // }
-
     const db = await getDB();
     const media = await db.all(`
       SELECT id, name, file_path, file_type, mime_type, size, dimensions, alt, created_at
@@ -41,17 +37,11 @@ export async function GET(request: NextRequest) {
 // ------------------------------------------------------------
 export async function POST(request: NextRequest) {
   try {
-    // Vérification d'authentification (optionnel)
-    // const session = await getServerSession(authOptions);
-    // if (!session || (session.user as any)?.role !== 'admin') {
-    //   return NextResponse.json({ error: 'Non autorisé' }, { status: 401 });
-    // }
-
     const formData = await request.formData();
     const file = formData.get('file') as File | null;
-    const name = formData.get('name') as string || null;
-    const alt = formData.get('alt') as string || null;
-    const campaignId = formData.get('campaign_id') as string || null;
+    const name = (formData.get('name') as string) || null;
+    const alt = (formData.get('alt') as string) || null;
+    const campaignId = (formData.get('campaign_id') as string) || null;
 
     if (!file) {
       return NextResponse.json(
@@ -90,23 +80,16 @@ export async function POST(request: NextRequest) {
     }
 
     // Générer un nom unique
-    const ext = path.extname(file.name);
-    const basename = path.basename(file.name, ext);
-    const timestamp = Date.now();
-    const safeName = `${basename}-${timestamp}${ext}`;
-    const uploadDir = path.join(process.cwd(), 'public', 'uploads', 'media');
+    const ext = file.name.split('.').pop() || 'bin';
+    const uniqueName = `media/${Date.now()}-${randomUUID()}.${ext}`;
 
-    // Créer le dossier s'il n'existe pas
-    if (!fs.existsSync(uploadDir)) {
-      fs.mkdirSync(uploadDir, { recursive: true });
-    }
-
-    const filePath = path.join(uploadDir, safeName);
+    // Upload vers Supabase Storage
     const buffer = Buffer.from(await file.arrayBuffer());
-    fs.writeFileSync(filePath, buffer);
-
-    // Chemin relatif pour la base de données et l'URL
-    const relativePath = `/uploads/media/${safeName}`;
+    const publicUrl = await uploadImageToSupabase(
+      uniqueName,
+      buffer,
+      file.type || 'application/octet-stream'
+    );
 
     // Déterminer le type de média
     let fileType = 'other';
@@ -121,27 +104,27 @@ export async function POST(request: NextRequest) {
        VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
       [
         name || file.name,
-        relativePath,
+        publicUrl,
         fileType,
         file.type,
         file.size,
         alt || null,
         campaignId ? parseInt(campaignId) : null,
-        1, // admin user id par défaut (à remplacer par l'ID de l'utilisateur connecté)
+        1, // admin user id par défaut
       ]
     );
 
     return NextResponse.json({
       success: true,
       id: result.lastID,
-      path: relativePath,
+      path: publicUrl,
       name: name || file.name,
       file_type: fileType,
     });
-  } catch (error) {
+  } catch (error: any) {
     console.error('Erreur POST /api/media:', error);
     return NextResponse.json(
-      { error: 'Erreur lors de l\'upload du fichier' },
+      { error: error?.message || "Erreur lors de l'upload du fichier" },
       { status: 500 }
     );
   }
@@ -152,12 +135,6 @@ export async function POST(request: NextRequest) {
 // ------------------------------------------------------------
 export async function DELETE(request: NextRequest) {
   try {
-    // Vérification d'authentification
-    // const session = await getServerSession(authOptions);
-    // if (!session || (session.user as any)?.role !== 'admin') {
-    //   return NextResponse.json({ error: 'Non autorisé' }, { status: 401 });
-    // }
-
     const { searchParams } = new URL(request.url);
     const id = searchParams.get('id');
 
@@ -169,7 +146,10 @@ export async function DELETE(request: NextRequest) {
     }
 
     const db = await getDB();
-    const media = await db.get('SELECT file_path FROM media_library WHERE id = ?', [parseInt(id)]);
+    const media = await db.get<{ file_path: string }>(
+      'SELECT file_path FROM media_library WHERE id = ?',
+      [parseInt(id)]
+    );
 
     if (!media) {
       return NextResponse.json(
@@ -178,10 +158,16 @@ export async function DELETE(request: NextRequest) {
       );
     }
 
-    // Supprimer le fichier physique
-    const filePath = path.join(process.cwd(), 'public', media.file_path);
-    if (fs.existsSync(filePath)) {
-      fs.unlinkSync(filePath);
+    // Supprimer le fichier sur Supabase (si c'est une URL Supabase)
+    if (media.file_path && media.file_path.includes('supabase')) {
+      const oldKey = extractKeyFromPublicUrl(media.file_path);
+      if (oldKey) {
+        try {
+          await deleteImageFromSupabase(oldKey);
+        } catch (err) {
+          console.warn('⚠️ Suppression Supabase échouée:', err);
+        }
+      }
     }
 
     // Supprimer l'entrée en base

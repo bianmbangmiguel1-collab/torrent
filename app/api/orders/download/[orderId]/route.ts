@@ -2,9 +2,10 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getDB } from '@/lib/db'
 import { getUserFromRequest } from '@/lib/auth'
-import { readFile } from 'fs/promises'
-import { existsSync } from 'fs'
-import path from 'path'
+import { getDownloadUrl } from '@/lib/storage'
+
+export const runtime = 'nodejs'
+export const dynamic = 'force-dynamic'
 
 export async function GET(
   req: NextRequest,
@@ -87,36 +88,34 @@ export async function GET(
       order.file_name ||
       `${order.product_title || 'produit'}.${order.file_format || 'zip'}`
 
-    // ─── Cas A : fichier local via file_path ───
+    // ─── Cas A : fichier via file_path (Supabase Storage) ───
     if (order.file_path) {
-      const safe = String(order.file_path)
-        .replace(/\.\./g, '')
-        .replace(/^\/+/, '')
-      const absolute = path.join(process.cwd(), 'public', safe)
+      try {
+        // Générer une URL signée valide 5 minutes
+        const signedUrl = await getDownloadUrl(order.file_path, 300, fileName)
 
-      if (existsSync(absolute)) {
-        const file = await readFile(absolute)
-
+        // Incrémenter le compteur
         await db.run(
           `UPDATE orders SET download_count = download_count + 1 WHERE id = ?`,
           [orderId],
         )
 
-        return new NextResponse(file, {
-          status: 200,
-          headers: {
-            'Content-Type': 'application/octet-stream',
-            'Content-Disposition': `attachment; filename="${encodeURIComponent(fileName)}"`,
-            'Content-Length': String(file.length),
-            'Cache-Control': 'no-store',
-          },
-        })
+        console.log(`✅ Téléchargement commande ${orderId}: ${order.file_path}`)
+
+        // Rediriger vers Supabase (pas de fs)
+        return NextResponse.redirect(signedUrl)
+      } catch (storageErr: any) {
+        console.warn(
+          `⚠️ Fichier Supabase introuvable pour order ${orderId}:`,
+          storageErr.message,
+        )
+        // On continue pour essayer download_url
       }
     }
 
     // ─── Cas B : URL externe via download_url ───
     if (order.download_url) {
-      // URL HTTP(S) → redirection
+      // URL HTTP(S) → redirection directe
       if (/^https?:\/\//i.test(order.download_url)) {
         await db.run(
           `UPDATE orders SET download_count = download_count + 1 WHERE id = ?`,
@@ -125,29 +124,25 @@ export async function GET(
         return NextResponse.redirect(order.download_url)
       }
 
-      // Chemin local
-      const safe = String(order.download_url)
-        .replace(/\.\./g, '')
-        .replace(/^\/+/, '')
-      const absolute = path.join(process.cwd(), 'public', safe)
-
-      if (existsSync(absolute)) {
-        const file = await readFile(absolute)
+      // Chemin local → traiter comme clé Supabase
+      try {
+        const signedUrl = await getDownloadUrl(
+          order.download_url,
+          300,
+          fileName,
+        )
 
         await db.run(
           `UPDATE orders SET download_count = download_count + 1 WHERE id = ?`,
           [orderId],
         )
 
-        return new NextResponse(file, {
-          status: 200,
-          headers: {
-            'Content-Type': 'application/octet-stream',
-            'Content-Disposition': `attachment; filename="${encodeURIComponent(fileName)}"`,
-            'Content-Length': String(file.length),
-            'Cache-Control': 'no-store',
-          },
-        })
+        return NextResponse.redirect(signedUrl)
+      } catch (storageErr: any) {
+        console.warn(
+          `⚠️ Fichier Supabase introuvable pour download_url ${orderId}:`,
+          storageErr.message,
+        )
       }
     }
 
@@ -164,6 +159,3 @@ export async function GET(
     )
   }
 }
-
-export const runtime = 'nodejs'
-export const dynamic = 'force-dynamic'

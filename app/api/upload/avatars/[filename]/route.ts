@@ -1,7 +1,15 @@
 // app/api/uploads/avatars/[filename]/route.ts
 import { NextRequest, NextResponse } from 'next/server';
-import fs from 'fs';
-import path from 'path';
+
+export const dynamic = 'force-dynamic';
+export const runtime = 'nodejs';
+
+// Image par défaut (SVG en base64, pas de dépendance fs)
+const DEFAULT_AVATAR_SVG = `<svg xmlns="http://www.w3.org/2000/svg" width="200" height="200" viewBox="0 0 200 200">
+  <rect width="200" height="200" fill="#e5e7eb"/>
+  <circle cx="100" cy="75" r="35" fill="#9ca3af"/>
+  <path d="M100 120c-40 0-70 25-70 55v25h140v-25c0-30-30-55-70-55z" fill="#9ca3af"/>
+</svg>`;
 
 export async function GET(
   request: NextRequest,
@@ -9,67 +17,21 @@ export async function GET(
 ) {
   try {
     const { filename } = params;
-    
-    // ⭐ Chemin vers le dossier uploads/avatars du backend
-    const filePath = path.join(
-      process.cwd(),
-      'torrenttwist-backend',
-      'uploads',
-      'avatars',
-      filename
-    );
-    
-    console.log('🔍 Recherche du fichier avatar:', filePath);
-    
-    // Vérifier si le fichier existe
-    if (!fs.existsSync(filePath)) {
-      console.log('❌ Fichier non trouvé:', filePath);
-      
-      // Essayer de trouver dans public/uploads/avatars/ en fallback
-      const publicPath = path.join(process.cwd(), 'public', 'uploads', 'avatars', filename);
-      if (fs.existsSync(publicPath)) {
-        const file = fs.readFileSync(publicPath);
-        const ext = path.extname(publicPath);
-        const contentType = ext === '.png' ? 'image/png' : 
-                           ext === '.jpg' || ext === '.jpeg' ? 'image/jpeg' : 
-                           'image/png';
-        return new NextResponse(file, {
-          headers: { 
-            'Content-Type': contentType,
-            'Cache-Control': 'public, max-age=31536000'
-          },
-        });
-      }
-      
-      // Retourner une image par défaut si elle existe
-      const defaultPath = path.join(process.cwd(), 'public', 'images', 'default-avatar.png');
-      if (fs.existsSync(defaultPath)) {
-        const file = fs.readFileSync(defaultPath);
-        return new NextResponse(file, {
-          headers: { 
-            'Content-Type': 'image/png',
-            'Cache-Control': 'public, max-age=31536000'
-          },
-        });
-      }
-      
-      return NextResponse.json({ error: 'Image non trouvée' }, { status: 404 });
-    }
 
-    const file = fs.readFileSync(filePath);
-    const ext = path.extname(filePath);
-    const contentType = ext === '.png' ? 'image/png' : 
-                       ext === '.jpg' || ext === '.jpeg' ? 'image/jpeg' : 
-                       'image/png';
+    console.log(`ℹ️ Requête legacy avatar: ${filename} — redirection vers default`);
 
-    return new NextResponse(file, {
-      headers: { 
-        'Content-Type': contentType,
-        'Cache-Control': 'public, max-age=31536000'
+    // Sur Cloudflare Workers, le fs local n'existe pas.
+    // Les avatars sont maintenant servis directement depuis Supabase Storage.
+    // On retourne l'image par défaut (SVG inline).
+    return new NextResponse(DEFAULT_AVATAR_SVG, {
+      status: 200,
+      headers: {
+        'Content-Type': 'image/svg+xml',
+        'Cache-Control': 'public, max-age=31536000',
       },
     });
   } catch (error) {
-    console.error('❌ Erreur serveur image:', error);
+    console.error('❌ Erreur serveur avatar:', error);
     return NextResponse.json({ error: 'Erreur serveur' }, { status: 500 });
   }
 }
