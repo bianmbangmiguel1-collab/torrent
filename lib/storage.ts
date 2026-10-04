@@ -1,18 +1,15 @@
 // lib/storage.ts
 import { createClient, type SupabaseClient } from '@supabase/supabase-js'
+import { getCloudflareContext } from '@opennextjs/cloudflare'
 
 // ------------------------------------------------------------
-// CLIENT SUPABASE (créé à l'appel, pas au chargement)
+// CLIENT SUPABASE (créé à l'appel, via getCloudflareContext)
 // ------------------------------------------------------------
-let _supabase: SupabaseClient | null = null
+async function getSupabase(): Promise<SupabaseClient> {
+  const { env } = await getCloudflareContext({ async: true })
 
-function getSupabase(): SupabaseClient {
-  if (_supabase) return _supabase
-
-  const url = process.env.SUPABASE_URL
-  const key =
-    process.env.SUPABASE_SECRET_KEY ||
-    process.env.SUPABASE_SERVICE_ROLE_KEY
+  const url = env.SUPABASE_URL
+  const key = env.SUPABASE_SECRET_KEY || env.SUPABASE_SERVICE_ROLE_KEY
 
   if (!url || !key) {
     throw new Error(
@@ -20,8 +17,7 @@ function getSupabase(): SupabaseClient {
     )
   }
 
-  _supabase = createClient(url, key)
-  return _supabase
+  return createClient(url, key)
 }
 
 // Bucket privé pour les fichiers (PDF, ZIP, etc.)
@@ -38,7 +34,7 @@ export async function uploadToSupabase(
   body: Buffer | Uint8Array,
   contentType: string
 ): Promise<string> {
-  const supabase = getSupabase()
+  const supabase = await getSupabase()
 
   const { error } = await supabase.storage
     .from(BUCKET_FILES)
@@ -56,7 +52,7 @@ export async function uploadImageToSupabase(
   body: Buffer | Uint8Array,
   contentType: string
 ): Promise<string> {
-  const supabase = getSupabase()
+  const supabase = await getSupabase()
 
   const { error } = await supabase.storage
     .from(BUCKET_IMAGES)
@@ -76,7 +72,7 @@ export async function getDownloadUrl(
   expiresIn = 3600,
   filename?: string
 ): Promise<string> {
-  const supabase = getSupabase()
+  const supabase = await getSupabase()
 
   const options = filename ? { download: filename } : undefined
 
@@ -93,7 +89,7 @@ export async function getDownloadUrl(
 // ============================================================
 export async function deleteFromSupabase(key: string): Promise<void> {
   try {
-    const supabase = getSupabase()
+    const supabase = await getSupabase()
     const { error } = await supabase.storage.from(BUCKET_FILES).remove([key])
     if (error) console.warn('⚠️ deleteFromSupabase:', error.message)
   } catch (err) {
@@ -106,7 +102,7 @@ export async function deleteFromSupabase(key: string): Promise<void> {
 // ============================================================
 export async function deleteImageFromSupabase(key: string): Promise<void> {
   try {
-    const supabase = getSupabase()
+    const supabase = await getSupabase()
     const { error } = await supabase.storage.from(BUCKET_IMAGES).remove([key])
     if (error) console.warn('⚠️ deleteImageFromSupabase:', error.message)
   } catch (err) {
