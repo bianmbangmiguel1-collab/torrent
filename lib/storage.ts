@@ -7,9 +7,11 @@ import { getCloudflareContext } from '@opennextjs/cloudflare'
 // ------------------------------------------------------------
 async function getSupabase(): Promise<SupabaseClient> {
   const { env } = await getCloudflareContext({ async: true })
+  // ✅ Type casting pour contourner le typage incomplet de CloudflareEnv
+  const e = env as any
 
-  const url = env.SUPABASE_URL
-  const key = env.SUPABASE_SECRET_KEY || env.SUPABASE_SERVICE_ROLE_KEY
+  const url = e.SUPABASE_URL
+  const key = e.SUPABASE_SECRET_KEY || e.SUPABASE_SERVICE_ROLE_KEY
 
   if (!url || !key) {
     throw new Error(
