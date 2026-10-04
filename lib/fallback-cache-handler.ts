@@ -8,7 +8,6 @@ import type {
   IncrementalCache,
 } from '@opennextjs/aws/types/overrides';
 
-// Type custom pour les variables d'environnement non déclarées dans wrangler.jsonc
 interface CustomEnv {
   NEXT_INC_CACHE_KV: KVNamespace;
   UPSTASH_REDIS_REST_URL: string;
@@ -81,7 +80,7 @@ export default async function createFallbackCacheHandler(): Promise<IncrementalC
 
     async set<CacheType extends CacheEntryType = 'cache'>(
       key: string,
-      value: WithLastModified<CacheValue<CacheType>>,
+      value: CacheValue<CacheType>,
       _cacheType?: CacheType
     ): Promise<void> {
       return withFallback<void>(
