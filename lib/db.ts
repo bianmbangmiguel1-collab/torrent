@@ -1,4 +1,5 @@
-﻿import { getCloudflareContext } from '@opennextjs/cloudflare'
+﻿// lib/db.ts
+import { getCloudflareContext } from '@opennextjs/cloudflare'
 import { randomBytes } from 'crypto'
 
 type D1SqlValue = string | number | null | ArrayBuffer | Uint8Array | boolean
@@ -28,8 +29,13 @@ function prepareStatement(
 
 export async function getDB(): Promise<DBAdapter> {
   const { env } = await getCloudflareContext({ async: true })
+
   // ✅ Type casting pour contourner l'incompatibilité wrangler types / OpenNext
   const d1 = (env as any).DB as D1Database
+
+  if (!d1) {
+    throw new Error('D1 binding "DB" introuvable. Vérifie wrangler.jsonc.')
+  }
 
   return {
     async get<T = any>(sql: string, params: unknown[] = []): Promise<T | undefined> {
