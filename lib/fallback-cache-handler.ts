@@ -1,25 +1,25 @@
 // lib/fallback-cache-handler.ts
 import { Redis } from '@upstash/redis/cloudflare';
+import { getCloudflareContext } from '@opennextjs/cloudflare';
 
-interface Env {
-  NEXT_INC_CACHE_KV: KVNamespace;
-  UPSTASH_REDIS_REST_URL: string;
-  UPSTASH_REDIS_REST_TOKEN: string;
-}
+// Types attendus par OpenNext
+type CacheEntryType = 'cache' | 'fetch' | 'composable';
 
 interface CacheEntry {
   value: unknown;
   lastModified: number;
-  tags?: string[];
 }
 
-export default function createFallbackCacheHandler(env: Env) {
+export default async function createFallbackCacheHandler() {
+  // Récupérer l'environnement Cloudflare au moment de l'appel
+  const { env } = await getCloudflareContext({ async: true });
+
   const redis = new Redis({
-    url: env.UPSTASH_REDIS_REST_URL,
-    token: env.UPSTASH_REDIS_REST_TOKEN,
+    url: env.UPSTASH_REDIS_REST_URL as string,
+    token: env.UPSTASH_REDIS_REST_TOKEN as string,
   });
 
-  const kv = env.NEXT_INC_CACHE_KV;
+  const kv = env.NEXT_INC_CACHE_KV as KVNamespace;
   const prefix = 'torrentwist:cache:';
   const ONE_YEAR = 60 * 60 * 24 * 365;
 
@@ -51,7 +51,10 @@ export default function createFallbackCacheHandler(env: Env) {
   return {
     name: 'fallback-cache-redis-kv',
 
-    async get(key: string): Promise<CacheEntry | null> {
+    async get<CacheType extends CacheEntryType = 'cache'>(
+      key: string,
+      _cacheType?: CacheType
+    ): Promise<CacheEntry | null> {
       return withFallback<CacheEntry | null>(
         async () => {
           const data = await redis.get<CacheEntry>(`${prefix}${key}`);
@@ -66,7 +69,11 @@ export default function createFallbackCacheHandler(env: Env) {
       );
     },
 
-    async set(key: string, value: CacheEntry): Promise<void> {
+    async set<CacheType extends CacheEntryType = 'cache'>(
+      key: string,
+      value: CacheEntry,
+      _cacheType?: CacheType
+    ): Promise<void> {
       return withFallback<void>(
         async () => {
           await redis.set(`${prefix}${key}`, value, { ex: ONE_YEAR });
