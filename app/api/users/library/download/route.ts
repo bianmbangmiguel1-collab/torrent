@@ -2,10 +2,12 @@
 import { NextRequest, NextResponse } from 'next/server'
 import * as jose from 'jose'
 import { getDB } from '@/lib/db'
-import fs from 'fs/promises'
-import path from 'path'
+import { getDownloadUrl } from '@/lib/storage'
 
 const JWT_SECRET = process.env.JWT_SECRET || 'torrenttwist_super_secret_key_2026'
+
+export const runtime = 'nodejs'
+export const dynamic = 'force-dynamic'
 
 async function getUserId(request: NextRequest): Promise<number | null> {
   let token =
@@ -43,7 +45,10 @@ export async function GET(request: NextRequest) {
     const productId = parseInt(searchParams.get('product_id') || '', 10)
 
     if (!orderId || Number.isNaN(orderId) || !productId || Number.isNaN(productId)) {
-      return NextResponse.json({ error: 'order_id et product_id requis' }, { status: 400 })
+      return NextResponse.json(
+        { error: 'order_id et product_id requis' },
+        { status: 400 }
+      )
     }
 
     const db = await getDB()
@@ -54,7 +59,10 @@ export async function GET(request: NextRequest) {
       [orderId, userId]
     )
     if (!order) {
-      return NextResponse.json({ error: 'Commande introuvable ou non payée' }, { status: 404 })
+      return NextResponse.json(
+        { error: 'Commande introuvable ou non payée' },
+        { status: 404 }
+      )
     }
 
     // Vérifier la limite de téléchargement
@@ -68,23 +76,34 @@ export async function GET(request: NextRequest) {
     }
 
     // Vérifier l'expiration
-    if (order.download_expires_at && new Date(order.download_expires_at) < new Date()) {
-      return NextResponse.json({ error: 'Lien de téléchargement expiré' }, { status: 410 })
+    if (
+      order.download_expires_at &&
+      new Date(order.download_expires_at) < new Date()
+    ) {
+      return NextResponse.json(
+        { error: 'Lien de téléchargement expiré' },
+        { status: 410 }
+      )
     }
 
     // Récupérer le produit
-    const product = await db.get('SELECT * FROM products WHERE id = ?', [productId])
+    const product = await db.get<any>(
+      'SELECT * FROM products WHERE id = ?',
+      [productId]
+    )
     if (!product || !product.file_path) {
       return NextResponse.json({ error: 'Fichier introuvable' }, { status: 404 })
     }
 
-    // Chemin du fichier
-    const filePath = path.join(process.cwd(), 'public', product.file_path.replace(/^\//, ''))
+    // Nom du fichier pour le téléchargement
+    const filename =
+      product.file_name ||
+      product.file_path.split('/').pop() ||
+      'download'
 
+    // Générer une URL signée valide 5 minutes sur Supabase Storage
     try {
-      const stat = await fs.stat(filePath)
-      const buffer = await fs.readFile(filePath)
-      const filename = path.basename(filePath)
+      const signedUrl = await getDownloadUrl(product.file_path, 300, filename)
 
       // Incrémenter le compteur
       await db.run(
@@ -92,22 +111,24 @@ export async function GET(request: NextRequest) {
         [orderId]
       )
 
-      return new NextResponse(buffer, {
-        headers: {
-          'Content-Type': 'application/octet-stream',
-          'Content-Disposition': `attachment; filename="${encodeURIComponent(filename)}"`,
-          'Content-Length': String(stat.size),
-          'Cache-Control': 'no-store',
-        },
-      })
-    } catch {
-      return NextResponse.json({ error: 'Fichier introuvable sur le serveur' }, { status: 404 })
+      console.log(
+        `✅ Téléchargement bibliothèque order=${orderId} product=${productId}`
+      )
+
+      // Rediriger vers Supabase (pas de fs.readFile)
+      return NextResponse.redirect(signedUrl)
+    } catch (err: any) {
+      console.error('❌ Erreur Supabase Storage:', err)
+      return NextResponse.json(
+        { error: 'Fichier introuvable sur le serveur' },
+        { status: 404 }
+      )
     }
   } catch (error: any) {
     console.error('❌ Erreur download:', error)
-    return NextResponse.json({ error: 'Erreur serveur' }, { status: 500 })
+    return NextResponse.json(
+      { error: error.message || 'Erreur serveur' },
+      { status: 500 }
+    )
   }
 }
-
-export const runtime = 'nodejs'
-export const dynamic = 'force-dynamic'
