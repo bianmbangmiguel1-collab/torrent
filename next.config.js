@@ -10,10 +10,16 @@ initOpenNextCloudflareForDev();
 // ============================================================
 function buildCSP() {
   // ═══ LISTE CENTRALISÉE DES SOURCES AUTORISÉES ═══
-  // Ajoute ici tous les domaines / sources que tu utilises
   const sources = {
     defaultSrc: ["'self'"],
-    scriptSrc: ["'self'", "'unsafe-inline'", "'unsafe-eval'", "https://leekpay.fr", "https://js.stripe.com"],
+    scriptSrc: [
+      "'self'",
+      "'unsafe-inline'",
+      "'unsafe-eval'",
+      "https://leekpay.fr",
+      "https://js.stripe.com",
+      "https://cdn.fedapay.com",        // ✅ AJOUT — vrai CDN FedaPay
+    ],
     styleSrc: ["'self'", "'unsafe-inline'"],
     imgSrc: ["'self'", "data:", "https:", "blob:"],
     fontSrc: ["'self'", "data:"],
@@ -28,8 +34,15 @@ function buildCSP() {
       "https://api.ipapi.co",
       "https://js.stripe.com",
       "https://api.stripe.com",
+      "https://cdn.fedapay.com",        // ✅ AJOUT
+      "https://api.fedapay.com",        // ✅ AJOUT — API FedaPay
     ],
-    frameSrc: ["'self'", "https://leekpay.fr", "https://js.stripe.com"],
+    frameSrc: [
+      "'self'",
+      "https://leekpay.fr",
+      "https://js.stripe.com",
+      "https://cdn.fedapay.com",        // ✅ AJOUT — iframe FedaPay
+    ],
     objectSrc: ["'none'"],
     baseUri: ["'self'"],
     formAction: ["'self'"],

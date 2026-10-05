@@ -1,7 +1,7 @@
 {
   "name": "TorrentTwist – Produits numériques",
   "short_name": "TorrentTwist",
-  "description": "Découvrez les meilleurs produits numériques, formations, templates et ressources pour booster votre activité.",
+  "description": "Découvrez, achetez et centralisez vos produits numériques en un seul endroit. Accès instantané, paiement sécurisé, bibliothèque personnelle.",
   "start_url": "/",
   "scope": "/",
   "display": "standalone",
@@ -11,26 +11,27 @@
   "lang": "fr",
   "dir": "ltr",
   "categories": ["shopping", "business", "education"],
+
   "icons": [
-    {
-      "src": "/torrent.png",
-      "sizes": "192x192",
-      "type": "image/png",
-      "purpose": "any"
-    },
-    {
-      "src": "/torrent.png",
-      "sizes": "512x512",
-      "type": "image/png",
-      "purpose": "any"
-    },
-    {
-      "src": "/torrent.png",
-      "sizes": "180x180",
-      "type": "image/png",
-      "purpose": "maskable"
-    }
-  ],
+  {
+    "src": "/torrent-icon.png",
+    "sizes": "192x192",
+    "type": "image/png",
+    "purpose": "any"
+  },
+  {
+    "src": "/torrent-icon.png",
+    "sizes": "512x512",
+    "type": "image/png",
+    "purpose": "any"
+  },
+  {
+    "src": "/torrent-icon.png",
+    "sizes": "180x180",
+    "type": "image/png",
+    "purpose": "maskable"
+  }
+]
   "shortcuts": [
     {
       "name": "Mon dashboard",

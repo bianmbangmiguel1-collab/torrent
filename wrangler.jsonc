@@ -15,9 +15,7 @@
     "CHARIOW_API_URL": "https://api.chariow.com/v1",
     "CHARIOW_GENERIC_PRODUCT_ID": "https://ztggdzzz.mychariow.com/prd_f8xlppea",
     "CORS_ORIGIN": "https://torrentwist.com",
-    "NEXT_PUBLIC_API_URL": "https://torrentwist.com",
-    "UPSTASH_REDIS_REST_URL": "https://relaxing-ladybug-195236.upstash.io",
-    "UPSTASH_REDIS_REST_TOKEN": "gQAAAAAAAvqkAAIgcDFmYmFmYTYzYThmMzU0OWMwYTA3MmNmN2M5YTdjNzllZQ"
+    "NEXT_PUBLIC_API_URL": "https://torrentwist.com"
   },
   "d1_databases": [
     {

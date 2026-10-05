@@ -57,7 +57,7 @@ export const metadata: Metadata = {
         url: '/og-image.jpg',
         width: 1200,
         height: 630,
-        alt: 'TorrentTwist – Produits numériques',
+        alt: 'TorrentTwist – Futur Du Numérique',
         type: 'image/jpeg',
       },
     ],
@@ -86,13 +86,14 @@ export const metadata: Metadata = {
     },
   },
 
-  icons: {
+    icons: {
     icon: [
-      { url: '/torrent.png', type: 'image/png' },
+      { url: '/torrent-icon.png', sizes: '192x192', type: 'image/png' },
+      { url: '/torrent-icon.png', sizes: '512x512', type: 'image/png' },
       { url: '/favicon.ico', sizes: 'any' },
     ],
-    apple: [{ url: '/torrent.png', sizes: '180x180' }],
-    shortcut: ['/torrent.png'],
+    apple: [{ url: '/torrent-icon.png', sizes: '180x180' }],
+    shortcut: ['/torrent-icon.png'],
   },
 
   manifest: '/manifest.json',
@@ -102,14 +103,6 @@ export const metadata: Metadata = {
     address: false,
     telephone: false,
   },
-
-  appLinks: {
-    web: {
-      url: APP_URL,
-      should_fallback: true,
-    },
-  },
-}
 
 // ============================================================
 // 📱 VIEWPORT
@@ -142,11 +135,8 @@ export default function RootLayout({
     <html lang="fr" suppressHydrationWarning>
       <head>
         {/* PRECONNECT (performance) */}
-        <link rel="preconnect" href="https://js.fedapay.com" crossOrigin="" />
-        <link rel="dns-prefetch" href="https://js.fedapay.com" />
-
-        <link rel="preconnect" href="https://sandbox-api.fedapay.com" />
-        <link rel="dns-prefetch" href="https://sandbox-api.fedapay.com" />
+        <link rel="preconnect" href="https://cdn.fedapay.com" crossOrigin="" />
+        <link rel="dns-prefetch" href="https://cdn.fedapay.com" />
 
         <link rel="preconnect" href="https://api.fedapay.com" />
         <link rel="dns-prefetch" href="https://api.fedapay.com" />
@@ -158,9 +148,8 @@ export default function RootLayout({
         <link rel="preconnect" href="https://payment.chariow.com" />
         <link rel="dns-prefetch" href="https://payment.chariow.com" />
 
-        {/* Favicon fallback */}
-        <link rel="icon" href="/torrent.png" type="image/png" />
-        <link rel="apple-touch-icon" href="/torrent.png" />
+        <link rel="icon" href="/torrent-icon.png" type="image/png" />
+        <link rel="apple-touch-icon" href="/torrent-icon.png" />
 
         <meta name="theme-color" content="#4f46e5" />
       </head>
@@ -177,7 +166,7 @@ export default function RootLayout({
         ============================================================ */}
         <Script
           id="fedapay-checkout-script"
-          src="https://js.fedapay.com/v3/checkout.js"
+          src="https://cdn.fedapay.com/checkout.js?v=1.1.7"
           strategy="afterInteractive"
         />
       </body>
