@@ -1,5 +1,9 @@
 /** @type {import('next').NextConfig} */
+const { initOpenNextCloudflareForDev } = require("@opennextjs/cloudflare");
 const path = require('path');
+
+// Initialise le contexte Cloudflare pour le développement local
+initOpenNextCloudflareForDev();
 
 // ============================================================
 // UTILITAIRE POUR CONSTRUIRE LA CSP (PRODUCTION UNIQUEMENT)
@@ -16,7 +20,6 @@ function buildCSP() {
     mediaSrc: ["'self'", "data:", "blob:", "https:"],
     connectSrc: [
       "'self'",
-      // ⚠️ On garde localhost:5000 au cas où, mais Next.js gère maintenant tout lui-même
       "http://localhost:5000",
       "https://leekpay.fr",
       "https://api.leekpay.fr",
@@ -102,40 +105,6 @@ const nextConfig = {
   },
 
   // ============================================================
-  // ⚠️ PROXY — SUPPRIMÉ ⚠️
-  // ============================================================
-  // La règle `rewrites()` a été RETIRÉE volontairement.
-  //
-  // AVANT, elle redirigeait TOUTES les requêtes /api/* vers :
-  //   http://localhost:5000/api/*
-  //
-  // PROBLÈME : ce backend séparé (torrenttwist-backend) n'est pas
-  // démarré (nodemon ne fonctionne pas), donc chaque appel API
-  // renvoyait un 404.
-  //
-  // MAINTENANT : Next.js gère directement ses propres routes API
-  // dans `app/api/**/route.ts` (avec SQLite intégré). Tout
-  // fonctionne sans backend externe.
-  //
-  // Si vous décidez plus tard de réactiver un backend séparé,
-  // utilisez plutôt `beforeFiles` pour exclure les routes locales :
-  //
-  // async rewrites() {
-  //   return {
-  //     beforeFiles: [
-  //       // Routes gérées par Next.js (pas de proxy)
-  //       { source: '/api/auth/:path*',  destination: '/api/auth/:path*' },
-  //       { source: '/api/admin/:path*', destination: '/api/admin/:path*' },
-  //     ],
-  //     afterFiles: [
-  //       // Tout le reste va vers le backend externe
-  //       { source: '/api/:path*', destination: 'http://localhost:5000/api/:path*' },
-  //     ],
-  //   };
-  // },
-  // ============================================================
-
-  // ============================================================
   // HEADERS - CSP DÉSACTIVÉ EN DEV, STRICT EN PROD
   // ============================================================
   async headers() {
@@ -190,11 +159,9 @@ const nextConfig = {
   // ENVIRONNEMENT
   // ============================================================
   env: {
-    // ⚠️ CHANGÉ : en dev, on pointe vers Next.js lui-même (port 3000),
-    // pas vers le backend externe (port 5000) qui n'existe plus.
     NEXT_PUBLIC_API_URL: process.env.NODE_ENV === 'production'
       ? 'https://api.torrenttwist.com'
-      : 'http://localhost:3000',   // ← était http://localhost:5000
+      : 'http://localhost:3000',
     NEXT_PUBLIC_APP_URL: process.env.NODE_ENV === 'production'
       ? 'https://torrenttwist.com'
       : 'http://localhost:3000',
