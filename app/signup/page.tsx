@@ -458,7 +458,7 @@ export default function SignupPage() {
           className={styles.header}
         >
           <div className={styles.logoContainer}>
-            <img src="/torrent.png" alt="TorrentTwist" className={styles.logoImage} />
+            <img src="/torrent-icon.png" alt="TorrentTwist" className={styles.logoImage} />
           </div>
           <div className={styles.headerBadge}>
             <Sparkles size={14} />

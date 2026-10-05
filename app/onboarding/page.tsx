@@ -398,7 +398,7 @@ export default function OnboardingPage() {
         </button>
 
         <div className="logo-section">
-          <Image src="/torrent.png" alt="TorrentTwist" width={40} height={40} />
+          <Image src="/torrent-icon.png" alt="TorrentTwist" width={40} height={40} />
           <span className="logo-text">TorrentTwist</span>
         </div>
 

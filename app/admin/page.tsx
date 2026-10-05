@@ -590,7 +590,7 @@ export default function AdminDashboard() {
         <div className="sidebar-header">
           <div className="logo">
             <div className="logo-icon">
-              <Image src="/torrent.png" alt="TorrentTwist" width={40} height={40} className="logo-image" />
+              <Image src="/torrent-icon.png" alt="TorrentTwist" width={40} height={40} className="logo-image" />
             </div>
             <div>
               <span className="logo-text">TorrentTwist</span>

@@ -328,7 +328,7 @@ export default function WelcomeScreen() {
           >
             <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-white shadow-sm ring-1 ring-slate-200 transition group-hover:scale-105 sm:h-11 sm:w-11">
               <img
-                src="/torrent.png"
+                src="/torrent-icon.png"
                 alt="TorrentTwist"
                 className="h-8 w-8 object-contain sm:h-9 sm:w-9"
               />
@@ -611,7 +611,7 @@ export default function WelcomeScreen() {
                 <div className="text-center">
                   <div className="mx-auto flex h-24 w-24 items-center justify-center rounded-[28px] bg-white shadow-lg ring-1 ring-slate-100 sm:h-28 sm:w-28 sm:rounded-[32px]">
                     <img
-                      src="/torrent.png"
+                      src="/torrent-icon.png"
                       alt="TorrentTwist"
                       className="h-20 w-20 object-contain sm:h-24 sm:w-24"
                     />
@@ -1330,7 +1330,7 @@ export default function WelcomeScreen() {
               <div className="flex items-center gap-3">
                 <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-white">
                   <img
-                    src="/torrent.png"
+                    src="/torrent-icon.png"
                     alt="TorrentTwist"
                     className="h-9 w-9 object-contain"
                   />

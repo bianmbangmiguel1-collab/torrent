@@ -290,7 +290,7 @@ export default function AdminLoginPage() {
           <div className="brand-top">
             <div className="brand-logo">
               <Image
-                src="/torrent.png"
+                src="/torrent-icon.png"
                 alt="TorrentTwist"
                 width={46}
                 height={46}
@@ -388,7 +388,7 @@ export default function AdminLoginPage() {
             <div className="mobile-logo">
               <div className="mobile-logo-circle">
                 <Image
-                  src="/torrent.png"
+                  src="/torrent-icon.png"
                   alt="TorrentTwist"
                   width={42}
                   height={42}
