@@ -4,13 +4,16 @@
 import { getDB } from './db';
 import { revalidatePath } from 'next/cache';
 import { createClient } from '@supabase/supabase-js';
+import { getCloudflareContext } from '@opennextjs/cloudflare';
 
 // ------------------------------------------------------------
-// CLIENT SUPABASE (créé à la demande, pas au chargement)
+// CLIENT SUPABASE (créé à la demande, via getCloudflareContext)
 // ------------------------------------------------------------
-function getSupabase() {
-  const url = process.env.SUPABASE_URL;
-  const key = process.env.SUPABASE_SECRET_KEY;
+async function getSupabase() {
+  const { env } = await getCloudflareContext({ async: true });
+  const e = env as any;
+  const url = e.SUPABASE_URL;
+  const key = e.SUPABASE_SECRET_KEY || e.SUPABASE_SERVICE_ROLE_KEY;
   if (!url || !key) {
     throw new Error('SUPABASE_URL ou SUPABASE_SECRET_KEY manquant');
   }
@@ -21,7 +24,7 @@ function getSupabase() {
 // UTILITAIRE : uploader un fichier vers Supabase Storage
 // ------------------------------------------------------------
 async function saveFile(file: File, folder: string = 'campaigns'): Promise<string> {
-  const supabase = getSupabase();
+  const supabase = await getSupabase();
 
   const ext = file.name.split('.').pop() || 'bin';
   const timestamp = Date.now();
@@ -57,7 +60,7 @@ async function deleteFileFromStorage(publicUrl: string | null): Promise<void> {
     if (idx === -1) return;
     const filePath = publicUrl.slice(idx + marker.length);
 
-    const supabase = getSupabase();
+    const supabase = await getSupabase();
     const { error } = await supabase.storage.from('uploads').remove([filePath]);
     if (error) console.warn('⚠️ Suppression storage:', error.message);
   } catch (e) {
@@ -92,7 +95,7 @@ export async function createBanner(formData: FormData) {
   await db.run(
     `INSERT INTO banners (title, description, media_type, media_url, video_url, link_url, position, is_active, starts_at, ends_at)
      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-    [title, description, media_type, media_url, video_url, link_url, position, is_active, starts_at, ends_at]
+    [title ?? null, description, media_type, media_url, video_url, link_url, position, is_active, starts_at, ends_at]
   );
   revalidatePath('/admin/banners');
 }
@@ -124,7 +127,7 @@ export async function updateBanner(id: number, formData: FormData) {
   await db.run(
     `UPDATE banners SET title = ?, description = ?, media_type = ?, media_url = ?, video_url = ?, link_url = ?,
       position = ?, is_active = ?, starts_at = ?, ends_at = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?`,
-    [title, description, media_type, media_url, video_url, link_url, position, is_active, starts_at, ends_at, id]
+    [title ?? null, description, media_type, media_url, video_url, link_url, position, is_active, starts_at, ends_at, id]
   );
   revalidatePath('/admin/banners');
 }
@@ -158,12 +161,30 @@ export async function getCampaign(id: number) {
 
 export async function createCampaign(data: any) {
   const db = await getDB();
-  const { name, status, type, start_date, end_date, timezone, target_audience, devices, countries, languages, seo_alt, seo_title, contrast_check } = data;
+  const {
+    name, status, type, start_date, end_date, timezone, target_audience,
+    devices, countries, languages, seo_alt, seo_title, contrast_check
+  } = data;
+
   const result = await db.run(
     `INSERT INTO campaigns 
       (name, status, type, start_date, end_date, timezone, target_audience, devices, countries, languages, seo_alt, seo_title, contrast_check)
      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-    [name, status || 'draft', type || 'carousel', start_date, end_date, timezone || 'Africa/Douala', target_audience || 'all', devices || '["desktop","tablet","mobile"]', countries || null, languages || null, seo_alt || null, seo_title || null, contrast_check ?? 1]
+    [
+      name ?? null,
+      status || 'draft',
+      type || 'carousel',
+      start_date ?? null,
+      end_date ?? null,
+      timezone || 'Africa/Douala',
+      target_audience || 'all',
+      devices || '["desktop","tablet","mobile"]',
+      countries ?? null,
+      languages ?? null,
+      seo_alt ?? null,
+      seo_title ?? null,
+      contrast_check ?? 1
+    ]
   );
   revalidatePath('/admin/campaigns');
   return result.lastID;
@@ -171,12 +192,31 @@ export async function createCampaign(data: any) {
 
 export async function updateCampaign(id: number, data: any) {
   const db = await getDB();
-  const { name, status, type, start_date, end_date, timezone, target_audience, devices, countries, languages, seo_alt, seo_title, contrast_check } = data;
+  const {
+    name, status, type, start_date, end_date, timezone, target_audience,
+    devices, countries, languages, seo_alt, seo_title, contrast_check
+  } = data;
+
   await db.run(
     `UPDATE campaigns SET 
       name = ?, status = ?, type = ?, start_date = ?, end_date = ?, timezone = ?, target_audience = ?, devices = ?, countries = ?, languages = ?, seo_alt = ?, seo_title = ?, contrast_check = ?, updated_at = CURRENT_TIMESTAMP
      WHERE id = ?`,
-    [name, status, type, start_date, end_date, timezone, target_audience, devices, countries, languages, seo_alt, seo_title, contrast_check, id]
+    [
+      name ?? null,
+      status || 'draft',
+      type || 'carousel',
+      start_date ?? null,
+      end_date ?? null,
+      timezone || 'Africa/Douala',
+      target_audience || 'all',
+      devices || '["desktop","tablet","mobile"]',
+      countries ?? null,
+      languages ?? null,
+      seo_alt ?? null,
+      seo_title ?? null,
+      contrast_check ?? 1,
+      id
+    ]
   );
   revalidatePath('/admin/campaigns');
   revalidatePath(`/admin/campaigns/${id}`);
@@ -199,19 +239,19 @@ export async function duplicateCampaign(id: number) {
       (name, status, type, start_date, end_date, timezone, target_audience, devices, countries, languages, seo_alt, seo_title, contrast_check, created_by)
      VALUES (?, 'draft', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     [
-      newName,
-      campaign.type,
-      campaign.start_date,
-      campaign.end_date,
-      campaign.timezone,
-      campaign.target_audience,
-      campaign.devices,
-      campaign.countries,
-      campaign.languages,
-      campaign.seo_alt,
-      campaign.seo_title,
-      campaign.contrast_check,
-      campaign.created_by
+      newName ?? null,
+      campaign.type ?? null,
+      campaign.start_date ?? null,
+      campaign.end_date ?? null,
+      campaign.timezone ?? null,
+      campaign.target_audience ?? null,
+      campaign.devices ?? null,
+      campaign.countries ?? null,
+      campaign.languages ?? null,
+      campaign.seo_alt ?? null,
+      campaign.seo_title ?? null,
+      campaign.contrast_check ?? 1,
+      campaign.created_by ?? null
     ]
   );
   const newId = result.lastID;
@@ -221,7 +261,7 @@ export async function duplicateCampaign(id: number) {
     const { id: slideId, campaign_id, ...rest } = slide;
     const columns = Object.keys(rest).join(', ');
     const placeholders = Object.keys(rest).map(() => '?').join(', ');
-    const values = Object.values(rest);
+    const values = Object.values(rest).map(v => v === undefined ? null : v);
     await db.run(
       `INSERT INTO slides (campaign_id, ${columns}) VALUES (?, ${placeholders})`,
       [newId, ...values]
@@ -242,12 +282,61 @@ export async function getSlide(id: number) {
 
 export async function createSlide(data: any) {
   const db = await getDB();
-  const { campaign_id, position, type, title, subtitle, description, cta_text, cta_action, cta_value, media_type, media_url, media_desktop, media_tablet, media_mobile, video_source, video_autoplay, video_muted, video_loop, video_controls, video_max_duration, video_fallback_image, audio_url, audio_autoplay, audio_controls, content_position, content_alignment, overlay_opacity, text_color, button_color, background_color, animation_entrance, animation_text, animation_transition, autoplay_interval, autoplay_pause_on_hover, promotion_id, product_ids, collection_id, category_id } = data;
+  const {
+    campaign_id, position, type, title, subtitle, description, cta_text, cta_action, cta_value,
+    media_type, media_url, media_desktop, media_tablet, media_mobile, video_source,
+    video_autoplay, video_muted, video_loop, video_controls, video_max_duration,
+    video_fallback_image, audio_url, audio_autoplay, audio_controls,
+    content_position, content_alignment, overlay_opacity, text_color, button_color, background_color,
+    animation_entrance, animation_text, animation_transition, autoplay_interval,
+    autoplay_pause_on_hover, promotion_id, product_ids, collection_id, category_id
+  } = data;
+
   const result = await db.run(
     `INSERT INTO slides 
       (campaign_id, position, type, title, subtitle, description, cta_text, cta_action, cta_value, media_type, media_url, media_desktop, media_tablet, media_mobile, video_source, video_autoplay, video_muted, video_loop, video_controls, video_max_duration, video_fallback_image, audio_url, audio_autoplay, audio_controls, content_position, content_alignment, overlay_opacity, text_color, button_color, background_color, animation_entrance, animation_text, animation_transition, autoplay_interval, autoplay_pause_on_hover, promotion_id, product_ids, collection_id, category_id)
      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-    [campaign_id, position || 0, type || 'image', title, subtitle, description, cta_text, cta_action, cta_value, media_type || 'image', media_url, media_desktop, media_tablet, media_mobile, video_source, video_autoplay ?? 0, video_muted ?? 1, video_loop ?? 0, video_controls ?? 1, video_max_duration || 15, video_fallback_image, audio_url, audio_autoplay ?? 0, audio_controls ?? 1, content_position || 'center', content_alignment || 'center', overlay_opacity || 65, text_color || '#ffffff', button_color || '#2563eb', background_color || 'rgba(0,0,0,0.5)', animation_entrance || 'fade', animation_text || 'fade-up', animation_transition || 'fade', autoplay_interval || 5, autoplay_pause_on_hover ?? 1, promotion_id, product_ids ? JSON.stringify(product_ids) : null, collection_id, category_id]
+    [
+      campaign_id ?? null,
+      position ?? 0,
+      type || 'image',
+      title ?? null,
+      subtitle ?? null,
+      description ?? null,
+      cta_text ?? null,
+      cta_action ?? null,
+      cta_value ?? null,
+      media_type || 'image',
+      media_url ?? null,
+      media_desktop ?? null,
+      media_tablet ?? null,
+      media_mobile ?? null,
+      video_source ?? null,
+      video_autoplay ?? 0,
+      video_muted ?? 1,
+      video_loop ?? 0,
+      video_controls ?? 1,
+      video_max_duration || 15,
+      video_fallback_image ?? null,
+      audio_url ?? null,
+      audio_autoplay ?? 0,
+      audio_controls ?? 1,
+      content_position || 'center',
+      content_alignment || 'center',
+      overlay_opacity || 65,
+      text_color || '#ffffff',
+      button_color || '#2563eb',
+      background_color || 'rgba(0,0,0,0.5)',
+      animation_entrance || 'fade',
+      animation_text || 'fade-up',
+      animation_transition || 'fade',
+      autoplay_interval || 5,
+      autoplay_pause_on_hover ?? 1,
+      promotion_id ?? null,
+      product_ids ? JSON.stringify(product_ids) : null,
+      collection_id ?? null,
+      category_id ?? null
+    ]
   );
   revalidatePath(`/admin/campaigns/${campaign_id}`);
   return result.lastID;
@@ -255,12 +344,62 @@ export async function createSlide(data: any) {
 
 export async function updateSlide(id: number, data: any) {
   const db = await getDB();
-  const { campaign_id, position, type, title, subtitle, description, cta_text, cta_action, cta_value, media_type, media_url, media_desktop, media_tablet, media_mobile, video_source, video_autoplay, video_muted, video_loop, video_controls, video_max_duration, video_fallback_image, audio_url, audio_autoplay, audio_controls, content_position, content_alignment, overlay_opacity, text_color, button_color, background_color, animation_entrance, animation_text, animation_transition, autoplay_interval, autoplay_pause_on_hover, promotion_id, product_ids, collection_id, category_id } = data;
+  const {
+    campaign_id, position, type, title, subtitle, description, cta_text, cta_action, cta_value,
+    media_type, media_url, media_desktop, media_tablet, media_mobile, video_source,
+    video_autoplay, video_muted, video_loop, video_controls, video_max_duration,
+    video_fallback_image, audio_url, audio_autoplay, audio_controls,
+    content_position, content_alignment, overlay_opacity, text_color, button_color, background_color,
+    animation_entrance, animation_text, animation_transition, autoplay_interval,
+    autoplay_pause_on_hover, promotion_id, product_ids, collection_id, category_id
+  } = data;
+
   await db.run(
     `UPDATE slides SET 
       campaign_id = ?, position = ?, type = ?, title = ?, subtitle = ?, description = ?, cta_text = ?, cta_action = ?, cta_value = ?, media_type = ?, media_url = ?, media_desktop = ?, media_tablet = ?, media_mobile = ?, video_source = ?, video_autoplay = ?, video_muted = ?, video_loop = ?, video_controls = ?, video_max_duration = ?, video_fallback_image = ?, audio_url = ?, audio_autoplay = ?, audio_controls = ?, content_position = ?, content_alignment = ?, overlay_opacity = ?, text_color = ?, button_color = ?, background_color = ?, animation_entrance = ?, animation_text = ?, animation_transition = ?, autoplay_interval = ?, autoplay_pause_on_hover = ?, promotion_id = ?, product_ids = ?, collection_id = ?, category_id = ?, updated_at = CURRENT_TIMESTAMP
      WHERE id = ?`,
-    [campaign_id, position, type, title, subtitle, description, cta_text, cta_action, cta_value, media_type, media_url, media_desktop, media_tablet, media_mobile, video_source, video_autoplay, video_muted, video_loop, video_controls, video_max_duration, video_fallback_image, audio_url, audio_autoplay, audio_controls, content_position, content_alignment, overlay_opacity, text_color, button_color, background_color, animation_entrance, animation_text, animation_transition, autoplay_interval, autoplay_pause_on_hover, promotion_id, product_ids ? JSON.stringify(product_ids) : null, collection_id, category_id, id]
+    [
+      campaign_id ?? null,
+      position ?? 0,
+      type || 'image',
+      title ?? null,
+      subtitle ?? null,
+      description ?? null,
+      cta_text ?? null,
+      cta_action ?? null,
+      cta_value ?? null,
+      media_type || 'image',
+      media_url ?? null,
+      media_desktop ?? null,
+      media_tablet ?? null,
+      media_mobile ?? null,
+      video_source ?? null,
+      video_autoplay ?? 0,
+      video_muted ?? 1,
+      video_loop ?? 0,
+      video_controls ?? 1,
+      video_max_duration || 15,
+      video_fallback_image ?? null,
+      audio_url ?? null,
+      audio_autoplay ?? 0,
+      audio_controls ?? 1,
+      content_position || 'center',
+      content_alignment || 'center',
+      overlay_opacity || 65,
+      text_color || '#ffffff',
+      button_color || '#2563eb',
+      background_color || 'rgba(0,0,0,0.5)',
+      animation_entrance || 'fade',
+      animation_text || 'fade-up',
+      animation_transition || 'fade',
+      autoplay_interval || 5,
+      autoplay_pause_on_hover ?? 1,
+      promotion_id ?? null,
+      product_ids ? JSON.stringify(product_ids) : null,
+      collection_id ?? null,
+      category_id ?? null,
+      id
+    ]
   );
   revalidatePath(`/admin/campaigns/${campaign_id}`);
 }
@@ -291,7 +430,16 @@ export async function uploadMedia(file: File, name?: string, alt?: string, campa
   const result = await db.run(
     `INSERT INTO media_library (name, file_path, file_type, mime_type, size, alt, campaign_id, uploaded_by)
      VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
-    [name || file.name, filePath, file.type.startsWith('image/') ? 'image' : file.type.startsWith('video/') ? 'video' : 'audio', mime, size, alt || null, campaignId || null, 1]
+    [
+      name || file.name,
+      filePath,
+      file.type.startsWith('image/') ? 'image' : file.type.startsWith('video/') ? 'video' : 'audio',
+      mime ?? null,
+      size ?? null,
+      alt ?? null,
+      campaignId ?? null,
+      1
+    ]
   );
   revalidatePath('/admin/campaigns');
   return { id: result.lastID, path: filePath };

@@ -71,3 +71,6 @@ __pycache__/
 torrent.png
 worker-configuration.d.ts
 public/uploads/
+ai-fixer.ts
+scripts/ai-fixer.ts
+lib/db.sqlite-backup.ts
