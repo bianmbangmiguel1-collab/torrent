@@ -86,7 +86,7 @@ export const metadata: Metadata = {
     },
   },
 
-    icons: {
+  icons: {
     icon: [
       { url: '/torrent-icon.png', sizes: '192x192', type: 'image/png' },
       { url: '/torrent-icon.png', sizes: '512x512', type: 'image/png' },
@@ -103,6 +103,7 @@ export const metadata: Metadata = {
     address: false,
     telephone: false,
   },
+}   // ← ⚠️ CETTE ACCOLADE ÉTAIT MANQUANTE
 
 // ============================================================
 // 📱 VIEWPORT
