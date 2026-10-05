@@ -95,7 +95,7 @@ const PUBLIC_ROUTES = [
   // Assets
   '/_next',
   '/favicon.ico',
-  '/torrent.png',
+  '/torrent-icon.png',
   '/images',
   '/uploads',
   '/fonts',

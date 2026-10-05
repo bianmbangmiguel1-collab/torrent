@@ -160,7 +160,7 @@ export default function AppHeader() {
             <a href="/" className="flex items-center gap-2.5 no-underline group">
               <div className="w-9 h-9 flex items-center justify-center shrink-0 transition-transform duration-300 group-hover:rotate-[-8deg] group-hover:scale-110">
                 <Image
-                  src="/torrent.png"
+                  src="/torrent-icon.png"
                   alt="TorrentTwist"
                   width={36}
                   height={36}

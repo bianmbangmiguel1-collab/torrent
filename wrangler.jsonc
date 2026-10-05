@@ -15,7 +15,8 @@
     "CHARIOW_API_URL": "https://api.chariow.com/v1",
     "CHARIOW_GENERIC_PRODUCT_ID": "https://ztggdzzz.mychariow.com/prd_f8xlppea",
     "CORS_ORIGIN": "https://torrentwist.com",
-    "NEXT_PUBLIC_API_URL": "https://torrentwist.com"
+    "NEXT_PUBLIC_API_URL": "https://torrentwist.com",
+    "NEXTJS_SERVER_WORKING_DIRECTORY": "/"
   },
   "d1_databases": [
     {
