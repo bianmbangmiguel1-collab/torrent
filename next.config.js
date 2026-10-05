@@ -18,7 +18,8 @@ function buildCSP() {
       "'unsafe-eval'",
       "https://leekpay.fr",
       "https://js.stripe.com",
-      "https://cdn.fedapay.com",        // ✅ AJOUT — vrai CDN FedaPay
+      "https://cdn.fedapay.com",
+      "https://static.cloudflareinsights.com",   // ✅ AJOUT — Cloudflare Web Analytics
     ],
     styleSrc: ["'self'", "'unsafe-inline'"],
     imgSrc: ["'self'", "data:", "https:", "blob:"],
@@ -34,14 +35,16 @@ function buildCSP() {
       "https://api.ipapi.co",
       "https://js.stripe.com",
       "https://api.stripe.com",
-      "https://cdn.fedapay.com",        // ✅ AJOUT
-      "https://api.fedapay.com",        // ✅ AJOUT — API FedaPay
+      "https://cdn.fedapay.com",
+      "https://api.fedapay.com",
+      "https://cloudflareinsights.com",           // ✅ AJOUT — API Cloudflare Insights
+      "https://static.cloudflareinsights.com",   // ✅ AJOUT — beacon Cloudflare Insights
     ],
     frameSrc: [
       "'self'",
       "https://leekpay.fr",
       "https://js.stripe.com",
-      "https://cdn.fedapay.com",        // ✅ AJOUT — iframe FedaPay
+      "https://cdn.fedapay.com",
     ],
     objectSrc: ["'none'"],
     baseUri: ["'self'"],
