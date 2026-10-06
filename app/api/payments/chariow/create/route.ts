@@ -192,6 +192,125 @@ function detectCountryFromPhone(phone: string | null | undefined): string {
 }
 
 // ============================================================
+// INDICATIF PAYS : ISO → DIAL CODE (pour reconstruire E.164)
+// ============================================================
+
+const ISO_TO_DIAL_CODE: Record<string, string> = {
+  // Africa
+  DZ: '213', TN: '216', LY: '218', GM: '220', SN: '221', MR: '222',
+  ML: '223', GN: '224', CI: '225', BF: '226', NE: '227', TG: '228',
+  BJ: '229', MU: '230', LR: '231', SL: '232', GH: '233', NG: '234',
+  TD: '235', CF: '236', CM: '237', CV: '238', ST: '239', GQ: '240',
+  GA: '241', CG: '242', CD: '243', AO: '244', GW: '245', SC: '248',
+  SD: '249', RW: '250', ET: '251', SO: '252', DJ: '253', KE: '254',
+  TZ: '255', UG: '256', BI: '257', MZ: '258', ZM: '260', MG: '261',
+  RE: '262', ZW: '263', NA: '264', MW: '265', LS: '266', BW: '267',
+  SZ: '268', KM: '269', ZA: '27', SH: '290', ER: '291', AW: '297',
+  FO: '298', GL: '299',
+
+  // Americas
+  US: '1', CA: '1', BS: '1242', BB: '1246', AI: '1264', AG: '1268',
+  VG: '1284', VI: '1340', KY: '1345', BM: '1441', GD: '1473',
+  TC: '1649', JM: '1658', MS: '1664', MP: '1670', GU: '1671',
+  AS: '1684', SX: '1721', LC: '1758', DM: '1767', VC: '1784',
+  PR: '1787', DO: '1809', TT: '1868', KN: '1869', PE: '51', MX: '52',
+  CU: '53', AR: '54', BR: '55', CL: '56', CO: '57', VE: '58',
+  GP: '590', BO: '591', GY: '592', EC: '593', GF: '594', PY: '595',
+  MQ: '596', SR: '597', UY: '598', CW: '599',
+
+  // Europe
+  GR: '30', NL: '31', BE: '32', FR: '33', ES: '34', HU: '36',
+  IT: '39', RO: '40', CH: '41', AT: '43', GB: '44', DK: '45',
+  SE: '46', NO: '47', PL: '48', DE: '49', GI: '350', PT: '351',
+  LU: '352', IE: '353', IS: '354', AL: '355', MT: '356', CY: '357',
+  FI: '358', BG: '359', LT: '370', LV: '371', EE: '372', MD: '373',
+  AM: '374', BY: '375', AD: '376', MC: '377', SM: '378', UA: '380',
+  RS: '381', ME: '382', XK: '383', HR: '385', SI: '386', BA: '387',
+  MK: '389', CZ: '420', SK: '421', LI: '423',
+
+  // Asia
+  MY: '60', AU: '61', ID: '62', PH: '63', NZ: '64', SG: '65',
+  TH: '66', JP: '81', KR: '82', VN: '84', CN: '86', TR: '90',
+  IN: '91', PK: '92', AF: '93', LK: '94', MM: '95', IR: '98',
+  TL: '670', BN: '673', NR: '674', PG: '675', TO: '676', SB: '677',
+  VU: '678', FJ: '679', PW: '680', WF: '681', CK: '682', NU: '683',
+  WS: '685', KI: '686', NC: '687', TV: '688', PF: '689', TK: '690',
+  FM: '691', MH: '692', KP: '850', HK: '852', MO: '853', KH: '855',
+  LA: '856', BD: '880', TW: '886', MV: '960', LB: '961', JO: '962',
+  SY: '963', IQ: '964', KW: '965', SA: '966', YE: '967', OM: '968',
+  PS: '970', AE: '971', IL: '972', BH: '973', QA: '974', BT: '975',
+  MN: '976', NP: '977', TJ: '992', TM: '993', AZ: '994', GE: '995',
+  KG: '996', UZ: '998',
+
+  // Russia
+  RU: '7',
+}
+
+// ============================================================
+// NORMALISATION DU NUMÉRO EN E.164
+// ============================================================
+
+/**
+ * Normalise un numéro de téléphone au format E.164 (+indicatif + numéro local).
+ *
+ * Exemples :
+ *   "+237675832091"  → "+237675832091"   (déjà E.164)
+ *   "237675832091"   → "+237675832091"   (ajoute le +)
+ *   "675832091"      → "+237675832091"   (ajoute indicatif CM)
+ *   "0675832091"     → "+237675832091"   (enlève le 0 initial, ajoute indicatif CM)
+ */
+function normalizeToE164(
+  rawPhone: string,
+  countryHint?: string | null,
+): { phoneNumber: string; countryCode: string; dialCode: string } {
+  const digitsOnly = rawPhone.replace(/\D/g, '')
+
+  // Détermine le country code (ISO 2 lettres)
+  // Priorité : détection depuis le numéro, sinon depuis countryHint
+  let countryCode = detectCountryFromPhone(rawPhone)
+
+  // Si le numéro ne contient pas d'indicatif, on utilise le pays du profil
+  // (car detectCountryFromPhone retombe sur BJ par défaut)
+  if (!rawPhone.trim().startsWith('+') && digitsOnly.length <= 10 && countryHint) {
+    const hintIso = toIsoCountry(countryHint)
+    if (hintIso) countryCode = hintIso
+  }
+
+  const dialCode = ISO_TO_DIAL_CODE[countryCode] || '229'
+
+  // Cas 1 : commence par +
+  if (rawPhone.trim().startsWith('+')) {
+    return {
+      phoneNumber: `+${digitsOnly}`,
+      countryCode,
+      dialCode,
+    }
+  }
+
+  // Cas 2 : commence par l'indicatif pays (sans +)
+  if (digitsOnly.startsWith(dialCode) && digitsOnly.length > dialCode.length + 5) {
+    return {
+      phoneNumber: `+${digitsOnly}`,
+      countryCode,
+      dialCode,
+    }
+  }
+
+  // Cas 3 : commence par 0 (format local, ex: "0675832091")
+  let localDigits = digitsOnly
+  if (localDigits.startsWith('0')) {
+    localDigits = localDigits.slice(1)
+  }
+
+  // Cas 4 : numéro local sans indicatif → ajoute l'indicatif
+  return {
+    phoneNumber: `+${dialCode}${localDigits}`,
+    countryCode,
+    dialCode,
+  }
+}
+
+// ============================================================
 // ROBUST FETCH (retry + timeout)
 // ============================================================
 
@@ -397,10 +516,11 @@ export async function POST(req: NextRequest) {
     const lastName = parts.slice(1).join(' ') || parts[0] || 'Customer'
 
     // ═══════════════════════════════════════════════════════════════
-    // 📞 PHONE — CORRIGÉ v2 (format E.164 avec indicatif)
+    // 📞 PHONE — NORMALISATION EN E.164
     // ═══════════════════════════════════════════════════════════════
     // Chariow attend le numéro COMPLET au format international E.164 (+237...).
-    // On garde donc l'indicatif pays dans le numéro.
+    // Le numéro en D1 peut être stocké SANS indicatif (ex: "675832091").
+    // On le normalise donc en ajoutant l'indicatif pays.
     const rawPhone = (order.user_phone || (user as any).phone || '').trim()
 
     if (!rawPhone) {
@@ -415,11 +535,14 @@ export async function POST(req: NextRequest) {
       )
     }
 
-    // Garde le numéro complet avec indicatif (format E.164)
-    const digitsOnly = rawPhone.replace(/\D/g, '')
-    const phoneNumber = `+${digitsOnly}`
+    const { phoneNumber, countryCode, dialCode } = normalizeToE164(
+      rawPhone,
+      order.user_country || (user as any).country,
+    )
 
-    if (!digitsOnly || digitsOnly.length < 8) {
+    // Validation : doit faire au moins 8 chiffres au total (indicatif + local)
+    const totalDigits = phoneNumber.replace(/\D/g, '')
+    if (!totalDigits || totalDigits.length < 8) {
       console.error('❌ Invalid phone number:', rawPhone, '→', phoneNumber)
       return NextResponse.json(
         {
@@ -431,14 +554,11 @@ export async function POST(req: NextRequest) {
       )
     }
 
-    // ⚠️ Le country_code est TOUJOURS déduit du numéro de téléphone,
-    // pour garantir la cohérence entre number et country_code (exigence Chariow).
-    const countryCode = detectCountryFromPhone(rawPhone)
-
     console.log('📞 Phone:', {
       raw: rawPhone,
       cleaned: phoneNumber,
       country: countryCode,
+      dialCode,
     })
 
     // ─── Pick product_id ───
@@ -583,6 +703,8 @@ export async function POST(req: NextRequest) {
             checkout_url: checkoutUrl,
             mode: order.chariow_product_id ? 'product' : 'generic',
             product_id_used: productIdToUse,
+            phone_sent: phoneNumber,
+            country_sent: countryCode,
           }),
         ],
       )
