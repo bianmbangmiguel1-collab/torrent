@@ -191,17 +191,6 @@ function detectCountryFromPhone(phone: string | null | undefined): string {
   return 'BJ'
 }
 
-function cleanPhoneNumber(phone: string | null | undefined): string {
-  if (!phone) return ''
-  const digits = phone.replace(/\D/g, '')
-  if (!digits) return ''
-
-  for (const dialCode of DIAL_CODES_SORTED) {
-    if (digits.startsWith(dialCode)) return digits.slice(dialCode.length)
-  }
-  return digits
-}
-
 // ============================================================
 // ROBUST FETCH (retry + timeout)
 // ============================================================
@@ -408,10 +397,10 @@ export async function POST(req: NextRequest) {
     const lastName = parts.slice(1).join(' ') || parts[0] || 'Customer'
 
     // ═══════════════════════════════════════════════════════════════
-    // 📞 PHONE — CORRIGÉ
+    // 📞 PHONE — CORRIGÉ v2 (format E.164 avec indicatif)
     // ═══════════════════════════════════════════════════════════════
-    // On NE met PLUS de fallback '+22966000000' (faux numéro rejeté par Chariow).
-    // Si l'utilisateur n'a pas de téléphone → erreur claire → il doit le renseigner.
+    // Chariow attend le numéro COMPLET au format international E.164 (+237...).
+    // On garde donc l'indicatif pays dans le numéro.
     const rawPhone = (order.user_phone || (user as any).phone || '').trim()
 
     if (!rawPhone) {
@@ -426,9 +415,11 @@ export async function POST(req: NextRequest) {
       )
     }
 
-    const phoneNumber = cleanPhoneNumber(rawPhone)
+    // Garde le numéro complet avec indicatif (format E.164)
+    const digitsOnly = rawPhone.replace(/\D/g, '')
+    const phoneNumber = `+${digitsOnly}`
 
-    if (!phoneNumber || phoneNumber.length < 6) {
+    if (!digitsOnly || digitsOnly.length < 8) {
       console.error('❌ Invalid phone number:', rawPhone, '→', phoneNumber)
       return NextResponse.json(
         {
@@ -481,8 +472,8 @@ export async function POST(req: NextRequest) {
       first_name: firstName,
       last_name: lastName,
       phone: {
-        number: phoneNumber,
-        country_code: countryCode,
+        number: phoneNumber,       // → "+237675832091"
+        country_code: countryCode, // → "CM"
       },
       country: countryCode,
       redirect_url: callbackUrl,
