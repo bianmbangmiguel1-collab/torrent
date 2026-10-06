@@ -392,9 +392,16 @@ export async function POST(req: NextRequest) {
       )
     }
 
-    // ─── Callback URL ───
-    const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'
-    const callbackUrl = `${appUrl}/payment/success?provider=chariow&orderId=${order.id}`
+    // ─── Callback URL (CORRIGÉ) ───
+    // Utilise l'origine de la requête en priorité (fiable en prod),
+    // puis fallback sur les variables d'env, puis sur l'URL de prod hardcodée.
+    const origin =
+      req.headers.get('origin') ||
+      process.env.NEXT_PUBLIC_API_URL ||
+      process.env.NEXT_PUBLIC_APP_URL ||
+      'https://torrentwist.com'
+
+    const callbackUrl = `${origin}/payment/success?provider=chariow&orderId=${order.id}`
 
     // ─── Name / First name ───
     const fullName = (order.user_name || user.name || 'Customer').trim()
