@@ -392,9 +392,7 @@ export async function POST(req: NextRequest) {
       )
     }
 
-    // ─── Callback URL (CORRIGÉ) ───
-    // Utilise l'origine de la requête en priorité (fiable en prod),
-    // puis fallback sur les variables d'env, puis sur l'URL de prod hardcodée.
+    // ─── Callback URL ───
     const origin =
       req.headers.get('origin') ||
       process.env.NEXT_PUBLIC_API_URL ||
@@ -409,14 +407,42 @@ export async function POST(req: NextRequest) {
     const firstName = parts[0] || 'Customer'
     const lastName = parts.slice(1).join(' ') || parts[0] || 'Customer'
 
-    // ─── Phone ───
-    const rawPhone =
-      order.user_phone || (user as any).phone || '+22966000000'
+    // ═══════════════════════════════════════════════════════════════
+    // 📞 PHONE — CORRIGÉ
+    // ═══════════════════════════════════════════════════════════════
+    // On NE met PLUS de fallback '+22966000000' (faux numéro rejeté par Chariow).
+    // Si l'utilisateur n'a pas de téléphone → erreur claire → il doit le renseigner.
+    const rawPhone = (order.user_phone || (user as any).phone || '').trim()
+
+    if (!rawPhone) {
+      console.error('❌ No phone number for user:', user.id)
+      return NextResponse.json(
+        {
+          error:
+            'Numéro de téléphone manquant. Ajoutez-le dans votre profil avant de payer.',
+          code: 'PHONE_MISSING',
+        },
+        { status: 400 },
+      )
+    }
 
     const phoneNumber = cleanPhoneNumber(rawPhone)
-    const countryCode = toIsoCountry(
-      order.user_country || detectCountryFromPhone(rawPhone),
-    )
+
+    if (!phoneNumber || phoneNumber.length < 6) {
+      console.error('❌ Invalid phone number:', rawPhone, '→', phoneNumber)
+      return NextResponse.json(
+        {
+          error:
+            'Numéro de téléphone invalide. Vérifiez le format (indicatif pays inclus).',
+          code: 'PHONE_INVALID',
+        },
+        { status: 400 },
+      )
+    }
+
+    // ⚠️ Le country_code est TOUJOURS déduit du numéro de téléphone,
+    // pour garantir la cohérence entre number et country_code (exigence Chariow).
+    const countryCode = detectCountryFromPhone(rawPhone)
 
     console.log('📞 Phone:', {
       raw: rawPhone,
