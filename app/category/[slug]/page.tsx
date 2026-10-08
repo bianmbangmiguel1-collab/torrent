@@ -100,12 +100,14 @@ export default async function CategoryPage({ params }: PageProps) {
   if (!category) notFound()
 
   // 2. Récupérer la catégorie parente (si sous-catégorie)
+  // ✅ CORRECTION : db.get() retourne `T | undefined`, on convertit en `null`
   let parent: { id: number; name: string; slug: string } | null = null
   if (category.parent_id) {
-    parent = await db.get(
+    const parentResult = await db.get<{ id: number; name: string; slug: string }>(
       `SELECT id, name, slug FROM categories WHERE id = ? AND is_active = 1`,
       [category.parent_id]
     )
+    parent = parentResult ?? null
   }
 
   // 3. Récupérer les sous-catégories
