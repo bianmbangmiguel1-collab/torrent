@@ -331,7 +331,7 @@ export default async function CategoryPage({ params }: PageProps) {
                 {products.map((p, i) => (
                   <AnimatedProductCard
                     key={p.id}
-                    product={p}
+                    product={{ ...p, avg_rating: p.avg_rating ?? undefined }}
                     priority={i < 4}
                   />
                 ))}
