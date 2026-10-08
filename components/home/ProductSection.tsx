@@ -54,7 +54,35 @@ export default function ProductSection({
     })
   }
 
-  const gridCols = `grid-cols-${itemsPerRow.mobile ?? 2} sm:grid-cols-${itemsPerRow.tablet ?? 3} md:grid-cols-${itemsPerRow.desktop ?? 4} xl:grid-cols-${itemsPerRow.large ?? 5}`
+  // Mapping statique des classes Tailwind (obligatoire pour que Tailwind les compile)
+  const colsMobile = itemsPerRow.mobile ?? 2
+  const colsTablet = itemsPerRow.tablet ?? 3
+  const colsDesktop = itemsPerRow.desktop ?? 4
+  const colsLarge = itemsPerRow.large ?? 5
+
+  const gridColsMap: Record<number, string> = {
+    1: 'grid-cols-1', 2: 'grid-cols-2', 3: 'grid-cols-3',
+    4: 'grid-cols-4', 5: 'grid-cols-5', 6: 'grid-cols-6',
+  }
+  const smMap: Record<number, string> = {
+    1: 'sm:grid-cols-1', 2: 'sm:grid-cols-2', 3: 'sm:grid-cols-3',
+    4: 'sm:grid-cols-4', 5: 'sm:grid-cols-5', 6: 'sm:grid-cols-6',
+  }
+  const mdMap: Record<number, string> = {
+    1: 'md:grid-cols-1', 2: 'md:grid-cols-2', 3: 'md:grid-cols-3',
+    4: 'md:grid-cols-4', 5: 'md:grid-cols-5', 6: 'md:grid-cols-6',
+  }
+  const xlMap: Record<number, string> = {
+    1: 'xl:grid-cols-1', 2: 'xl:grid-cols-2', 3: 'xl:grid-cols-3',
+    4: 'xl:grid-cols-4', 5: 'xl:grid-cols-5', 6: 'xl:grid-cols-6',
+  }
+
+  const gridCols = [
+    gridColsMap[colsMobile] ?? 'grid-cols-2',
+    smMap[colsTablet] ?? 'sm:grid-cols-3',
+    mdMap[colsDesktop] ?? 'md:grid-cols-4',
+    xlMap[colsLarge] ?? 'xl:grid-cols-5',
+  ].join(' ')
 
   return (
     <section className="mb-8 sm:mb-10 md:mb-14">
@@ -70,6 +98,9 @@ export default function ProductSection({
           <div className="min-w-0">
             <h2 className="text-lg sm:text-xl md:text-2xl font-bold text-gray-900 truncate">
               {title}
+              <span className="ml-2 text-sm font-normal text-gray-400">
+                ({products.length})
+              </span>
             </h2>
             {subtitle && (
               <p className="text-xs sm:text-sm text-gray-500 truncate">{subtitle}</p>
@@ -78,7 +109,6 @@ export default function ProductSection({
         </div>
 
         <div className="flex items-center gap-2 shrink-0">
-          {/* Boutons carrousel */}
           {carousel && (
             <div className="hidden sm:flex items-center gap-1">
               <button
@@ -98,7 +128,6 @@ export default function ProductSection({
             </div>
           )}
 
-          {/* Lien "Voir tout" */}
           {viewAllLink && (
             <Link
               href={viewAllLink}
@@ -111,7 +140,7 @@ export default function ProductSection({
         </div>
       </div>
 
-      {/* ───── Grille ou carrousel ───── */}
+      {/* ───── Grille ou carrousel : TOUS les produits, sans exception ───── */}
       {carousel ? (
         <div
           ref={scrollRef}

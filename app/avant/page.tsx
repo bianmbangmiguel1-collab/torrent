@@ -174,7 +174,7 @@ export default async function HomePage() {
     LIMIT 6
   `);
 
-  // 4. Nouveautés
+  // 4. Nouveautés → TOUS les produits
   const newProducts = await db.all<Product>(`
     SELECT p.*,
       (SELECT url FROM product_images WHERE product_id = p.id AND is_main = 1 LIMIT 1) as main_image,
@@ -185,10 +185,9 @@ export default async function HomePage() {
     FROM products p
     WHERE p.status = 'published'
     ORDER BY p.created_at DESC
-    LIMIT 10
   `);
 
-  // 5. Promotions
+  // 5. Promotions → TOUS les produits en promo
   const promoProducts = await db.all<Product>(`
     SELECT p.*,
       (SELECT url FROM product_images WHERE product_id = p.id AND is_main = 1 LIMIT 1) as main_image,
@@ -198,10 +197,9 @@ export default async function HomePage() {
     FROM products p
     WHERE p.status = 'published' AND p.compare_price IS NOT NULL
     ORDER BY (p.compare_price - p.price) DESC
-    LIMIT 10
   `);
 
-  // 6. Populaires
+  // 6. Populaires → TOUS les produits
   const popularProducts = await db.all<Product>(`
     SELECT p.*,
       (SELECT url FROM product_images WHERE product_id = p.id AND is_main = 1 LIMIT 1) as main_image,
@@ -211,16 +209,15 @@ export default async function HomePage() {
     FROM products p
     WHERE p.status = 'published'
     ORDER BY sales_count DESC
-    LIMIT 10
   `);
 
-  // 7. IA
-  const aiProducts = await getAIRecommendations(undefined, 10);
+  // 7. IA → TOUS les produits (algorithme réordonne à chaque visite)
+  const aiProducts = await getAIRecommendations(undefined, 9999);
 
-  // 8. Tendances
-  const trendingProducts = await getTrendingProducts(10);
+  // 8. Tendances → TOUS les produits
+  const trendingProducts = await getTrendingProducts(9999);
 
-  // 9. Meilleures ventes
+  // 9. Meilleures ventes → TOUS les produits
   const bestSellers = await db.all<Product>(`
     SELECT p.*,
       (SELECT url FROM product_images WHERE product_id = p.id AND is_main = 1 LIMIT 1) as main_image,
@@ -230,7 +227,6 @@ export default async function HomePage() {
     FROM products p
     WHERE p.status = 'published'
     ORDER BY sales_count DESC
-    LIMIT 10
   `);
 
   // 10. Avis
@@ -247,7 +243,7 @@ export default async function HomePage() {
       (SELECT AVG(rating) FROM reviews WHERE status = 'approved') as avg_rating
   `);
 
-  // 12. Produits "flash sale" (top 3 promos)
+  // 12. Produits "flash sale" (top 3 promos — garde LIMIT 3 pour la bannière)
   const flashSaleProducts = await db.all<Product>(`
     SELECT p.*,
       (SELECT url FROM product_images WHERE product_id = p.id AND is_main = 1 LIMIT 1) as main_image,
@@ -260,7 +256,7 @@ export default async function HomePage() {
     LIMIT 3
   `);
 
-  // 13. Bundle deal (produits aléatoires)
+  // 13. Bundle deal (3 produits aléatoires — garde LIMIT 3 pour le bundle)
   const bundleProducts = await db.all<Product>(`
     SELECT p.*,
       (SELECT url FROM product_images WHERE product_id = p.id AND is_main = 1 LIMIT 1) as main_image
