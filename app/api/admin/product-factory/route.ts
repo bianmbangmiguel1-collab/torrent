@@ -1,134 +1,126 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { requireAdmin, createAdminErrorResponse } from '@/lib/admin-auth'
+import { callLLMWithFallback, extractJSON } from '@/lib/ai'
 
-type Opportunity = {
-  id: string
-  title: string
-  category: string
-  trend: string
-  targetAudience: string
-  problem: string
-  confidence: number
-  demandScore: number
-  justification: string
-  keywords: string[]
-  sources: string[]
+export const runtime = 'nodejs'
+export const dynamic = 'force-dynamic'
+
+interface FactoryRequest {
+  title?: string
+  category?: string
+  audience?: string
+  problem?: string
+  evidence?: string
 }
 
-const opportunities: Opportunity[] = [
-  {
-    id: 'ai-business-systems',
-    title: 'Systèmes IA pour entrepreneurs africains',
-    category: 'Templates & automations',
-    trend: 'Croissance forte des PME digitals',
-    targetAudience: 'Fondateurs de micro-entreprises, freelancers, agences',
-    problem: 'Ils veulent automatiser la prospection, les rendez-vous et la gestion client sans embaucher une équipe.',
-    confidence: 92,
-    demandScore: 88,
-    justification:
-      'Le besoin de plug-and-play business systems est très fort dans les marchés émergents, où l’exécution rapide prime sur la complexité.',
-    keywords: ['automation', 'saas', 'lead generation', 'ai workflow'],
-    sources: ['Google Trends', 'Gumroad marketplace', 'forums entrepreneurs'],
-  },
-  {
-    id: 'creator-growth-kit',
-    title: 'Kit de croissance pour créateurs de contenu',
-    category: 'Digital Products',
-    trend: 'Montée des créateurs de niche',
-    targetAudience: 'YouTubers, TikTokers, enseignants, infopreneurs',
-    problem: 'Ils doivent convertir leur audience en ventes sans savoir structurer une offre, un funnel ou des livrables.',
-    confidence: 89,
-    demandScore: 86,
-    justification:
-      'Les créateurs ont besoin d’outils concrets pour transformer l’audience en revenus, souvent sans équipe marketing.',
-    keywords: ['creator economy', 'content strategy', 'funnel', 'offer kit'],
-    sources: ['Creator economy reports', 'marketplaces', 'community feedback'],
-  },
-  {
-    id: 'micro-education-pack',
-    title: 'Packs d’apprentissage micro-qualitatifs',
-    category: 'Courses & guides',
-    trend: 'Demande solide sur la montée en compétences',
-    targetAudience: 'Professionnels, étudiants, débutants en commerce digital',
-    problem: 'Ils recherchent des ressources rapides, spécifiques et actionnables, faciles à consommer sur mobile.',
-    confidence: 91,
-    demandScore: 84,
-    justification:
-      'Les achats courts, orientés résultats et compréhensibles sont plus faciles à vendre que les formations longues et génériques.',
-    keywords: ['micro learning', 'digital skills', 'career growth', 'practical guide'],
-    sources: ['e-learning trend data', 'SEO keyword clusters', 'audience interviews'],
-  },
-]
+interface ProductBrief {
+  title: string
+  positioning: string
+  targetAudience: string
+  customerOutcome: string
+  outline: string[]
+  deliverables: string[]
+  salesDescription: string
+  keywords: string[]
+  metaTitle: string
+  metaDescription: string
+  validationNotes: string[]
+}
 
-export async function GET(request: NextRequest) {
-  const admin = await requireAdmin(request)
-  if (!admin) return createAdminErrorResponse('Accès administrateur requis')
+function cleanText(value: unknown, maxLength: number): string {
+  return typeof value === 'string' ? value.trim().slice(0, maxLength) : ''
+}
 
-  return NextResponse.json({
-    success: true,
-    opportunities,
-  })
+function cleanList(value: unknown, limit: number, maxLength: number): string[] {
+  if (!Array.isArray(value)) return []
+  return value
+    .filter((item): item is string => typeof item === 'string')
+    .map((item) => item.trim().slice(0, maxLength))
+    .filter(Boolean)
+    .slice(0, limit)
 }
 
 export async function POST(request: NextRequest) {
   const admin = await requireAdmin(request)
   if (!admin) return createAdminErrorResponse('Accès administrateur requis')
 
-  let payload: Partial<Opportunity> & { title?: string; category?: string }
+  let input: FactoryRequest
   try {
-    payload = await request.json()
+    input = await request.json()
   } catch {
+    return NextResponse.json({ error: 'Corps JSON invalide' }, { status: 400 })
+  }
+
+  const title = cleanText(input.title, 120)
+  const category = cleanText(input.category, 80)
+  const audience = cleanText(input.audience, 300)
+  const problem = cleanText(input.problem, 500)
+  const evidence = cleanText(input.evidence, 1200)
+
+  if (title.length < 3 || !category || !audience || !problem) {
     return NextResponse.json(
-      { success: false, error: 'Corps JSON invalide' },
+      { error: 'Renseignez un titre, une catégorie, un public cible et le problème client.' },
       { status: 400 },
     )
   }
 
-  const title = payload.title || 'Produit numérique premium'
-  const category = payload.category || 'Digital products'
-
-  const brief = {
-    title,
-    category,
-    targetAudience:
-      payload.targetAudience || 'Professionnels qui souhaitent gagner du temps et augmenter leur efficacité.',
-    marketGap:
-      payload.problem || 'Le marché manque d’outils concrets, faciles à mettre en œuvre et directement monétisables.',
-    valueProposition: [
-      'Résout un besoin immédiat avec une proposition claire',
-      'Livrable utilisable en moins d’une heure',
-      'Compatible mobile, desktop et workflow de travail',
-      'Facile à commercialiser avec une fiche produit rassurante',
-    ],
-    deliverables: [
-      'Guide PDF premium',
-      'Template editable',
-      'Checklist d’action',
-      'Vidéos de démonstration',
-      'Mise à jour de 30 jours',
-    ],
-    priceEstimate: 25000,
-    comparePrice: 45000,
-    seo: {
-      metaTitle: `${title} | Outil pratique et premium`,
-      metaDescription: `Découvrez ${title}, un pack digital conçu pour aller droit au résultat sans friction.`,
-      keywords: (payload.keywords || ['digital product', 'ai tools', 'growth']).slice(0, 6),
-    },
-    qualityScore: 94,
-    confidence: payload.confidence ?? 90,
-    demandScore: payload.demandScore ?? 88,
-    sources: payload.sources || ['TikTok trend analysis', 'marketplaces insights', 'keyword research'],
-    qaChecklist: [
-      'Message clair et orienté client',
-      'Contenu utilisable sans dépendance complexe',
-      'Fichiers prêts à la livraison',
-      'Prix cohérent avec la valeur perçue',
-      'Droits et licences validés',
-    ],
+  if (!process.env.OPENROUTER_API_KEY || process.env.USE_MOCK_AI === 'true') {
+    return NextResponse.json(
+      { error: 'La Product Factory nécessite une clé OpenRouter active. Aucun contenu de démonstration ne sera présenté comme une recherche réelle.' },
+      { status: 503 },
+    )
   }
 
-  return NextResponse.json({
-    success: true,
-    product: brief,
-  })
+  const systemPrompt = `Tu es un assistant de conception de produits numériques. Tu aides un administrateur à préparer un brouillon à vérifier par un humain. Réponds uniquement en JSON valide. N'invente jamais des données de marché, des tendances, des sources, des ventes, des certifications, des témoignages, des droits ou des résultats. Utilise uniquement les informations soumises et signale les hypothèses comme devant être vérifiées. Ne copie aucun produit ni contenu tiers.`
+  const userPrompt = `Prépare un brief produit en français à partir des informations ci-dessous.
+Titre proposé : ${title}
+Catégorie : ${category}
+Public cible fourni par l'équipe : ${audience}
+Problème client fourni par l'équipe : ${problem}
+Notes ou sources de recherche fournies par l'équipe (peuvent être absentes) : ${evidence || 'Aucune source fournie'}
+
+Retourne les champs JSON suivants : title, positioning (une phrase), targetAudience (reprends le public sans inventer des caractéristiques), customerOutcome (formulé sans garantie), outline (5 à 8 étapes), deliverables (3 à 6 livrables possibles), salesDescription (100 à 160 mots, sans promesse non étayée), keywords (5 à 8 expressions), metaTitle (maximum 60 caractères), metaDescription (maximum 160 caractères), validationNotes (3 à 6 vérifications humaines, notamment demande, droits et faisabilité). Si des informations manquent, indique-le clairement dans validationNotes. Ne donne ni score de demande ni estimation de ventes/prix.`
+
+  try {
+    const raw = await callLLMWithFallback(systemPrompt, userPrompt, {
+      json: true,
+      temperature: 0.4,
+      maxTokens: 1800,
+    })
+    const parsed = extractJSON<Partial<ProductBrief>>(raw)
+    if (!parsed || typeof parsed !== 'object') {
+      return NextResponse.json({ error: 'La réponse IA ne pouvait pas être validée. Réessayez.' }, { status: 502 })
+    }
+
+    const brief: ProductBrief = {
+      title: cleanText(parsed.title, 120) || title,
+      positioning: cleanText(parsed.positioning, 240),
+      targetAudience: cleanText(parsed.targetAudience, 300) || audience,
+      customerOutcome: cleanText(parsed.customerOutcome, 300),
+      outline: cleanList(parsed.outline, 8, 160),
+      deliverables: cleanList(parsed.deliverables, 6, 160),
+      salesDescription: cleanText(parsed.salesDescription, 1800),
+      keywords: cleanList(parsed.keywords, 8, 80),
+      metaTitle: cleanText(parsed.metaTitle, 60),
+      metaDescription: cleanText(parsed.metaDescription, 160),
+      validationNotes: cleanList(parsed.validationNotes, 6, 220),
+    }
+
+    if (!brief.positioning || brief.outline.length < 3 || !brief.salesDescription) {
+      return NextResponse.json({ error: 'Le brief généré est incomplet. Réessayez ou complétez-le manuellement.' }, { status: 502 })
+    }
+
+    return NextResponse.json({
+      success: true,
+      brief,
+      evidenceProvided: Boolean(evidence),
+      note: 'Brouillon IA uniquement : aucune étude de marché indépendante n’a été réalisée et aucune donnée commerciale n’est vérifiée.',
+    })
+  } catch (error) {
+    console.error('Product Factory generation failed:', error)
+    return NextResponse.json(
+      { error: 'La génération est temporairement indisponible. Vérifiez la configuration IA puis réessayez.' },
+      { status: 503 },
+    )
+  }
 }

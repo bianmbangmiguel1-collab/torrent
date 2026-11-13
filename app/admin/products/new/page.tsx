@@ -1,14 +1,11 @@
-// app/admin/products/new/page.tsx
 'use client'
 
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
+import Link from 'next/link'
 import ProductForm from '@/components/admin/ProductForm'
-import { Loader2 } from 'lucide-react'
+import { ArrowRight, Loader2, Sparkles } from 'lucide-react'
 
-// ============================================================
-// Types de réponses API
-// ============================================================
 interface AdminMeResponse {
   authenticated?: boolean
 }
@@ -43,14 +40,19 @@ export default function NewProductPage() {
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center min-h-screen">
-        <Loader2 className="h-12 w-12 text-blue-500 animate-spin" />
+      <div className="flex min-h-screen items-center justify-center">
+        <Loader2 className="h-12 w-12 animate-spin text-blue-500" />
       </div>
     )
   }
 
   return (
     <div className="min-h-screen bg-gray-50">
+      <div className="mx-auto max-w-6xl px-4 pt-5">
+        <Link href="/admin/product-factory" className="inline-flex items-center gap-2 rounded-xl border border-blue-100 bg-blue-50 px-4 py-3 text-sm font-semibold text-blue-800 transition hover:bg-blue-100">
+          <Sparkles size={17} /> Préparer une idée avec Product Factory <ArrowRight size={16} />
+        </Link>
+      </div>
       <ProductForm />
     </div>
   )
