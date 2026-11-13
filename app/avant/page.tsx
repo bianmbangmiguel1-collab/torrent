@@ -1,440 +1,116 @@
 export const dynamic = 'force-dynamic'
 
-// app/avant/page.tsx
-import { getDB } from '@/lib/db';
-import { getActiveCampaigns } from '@/lib/campaign-service';
-import type { Slide } from '@/lib/types';
-import { getAIRecommendations, getTrendingProducts } from '@/lib/ai-recommendations';
-import Link from 'next/link';
-import { headers } from 'next/headers';
-import nextDynamic from 'next/dynamic';
-import AppHeaderWrapper from '@/components/AppHeaderWrapper';
-import {
-  Star, ChevronRight, Sparkles, Tag, TrendingUp, Shield, Truck,
-  Headphones, CreditCard, Award, Gift, FolderOpen, Send, ShoppingBag,
-  ChevronLeft, Search, Zap, User, Clock, Flame, BarChart, Code, Music,
-  Video, BookOpen, Camera, PenTool, Heart, Coffee, Briefcase, Smartphone,
-  Gamepad2, BadgeCheck, Users, ThumbsUp, Eye, Download, Lock, CheckCircle,
-  Timer, Percent, Package, Rocket, Crown, Coins, ArrowRight, PlayCircle,
-} from 'lucide-react';
-
-// ============================================================
-// IMPORTS DYNAMIQUES (composants améliorés)
-// ============================================================
-
-const SearchBar = nextDynamic(() => import('@/components/home/SearchBar'), { ssr: false });
-const CarouselHero = nextDynamic(() => import('@/components/home/CarouselHero'), { ssr: false });
-const ProductSection = nextDynamic(() => import('@/components/home/ProductSection'), { ssr: false });
-const CategoryShowcase = nextDynamic(() => import('@/components/home/CategoryShowcase'), { ssr: false });
-const Features = nextDynamic(() => import('@/components/home/Features'), { ssr: false });
-const Testimonials = nextDynamic(() => import('@/components/home/Testimonials'), { ssr: false });
-const Newsletter = nextDynamic(() => import('@/components/home/Newsletter'), { ssr: false });
-const ReviewsShowcase = nextDynamic(() => import('@/components/home/ReviewsShowcase'), { ssr: false });
-const NewsletterAgent = nextDynamic(() => import('@/components/NewsletterAgent'), { ssr: false });
-
-const FlashSaleBanner = nextDynamic(() => import('@/components/home/FlashSaleBanner'), { ssr: false });
-const SocialProofTicker = nextDynamic(() => import('@/components/home/SocialProofTicker'), { ssr: false });
-const TrustBadges = nextDynamic(() => import('@/components/home/TrustBadges'), { ssr: false });
-const LiveActivity = nextDynamic(() => import('@/components/home/LiveActivity'), { ssr: false });
-const ProductBundleDeal = nextDynamic(() => import('@/components/home/ProductBundleDeal'), { ssr: false });
-const BeforeAfterValue = nextDynamic(() => import('@/components/home/BeforeAfterValue'), { ssr: false });
-const LimitedStockAlert = nextDynamic(() => import('@/components/home/LimitedStockAlert'), { ssr: false });
-const MoneyBackGuarantee = nextDynamic(() => import('@/components/home/MoneyBackGuarantee'), { ssr: false });
-
-// ============================================================
-// TYPES
-// ============================================================
+import Link from 'next/link'
+import Image from 'next/image'
+import { ArrowRight, BadgeCheck, BookOpen, ChevronRight, Download, Layers3, Tag } from 'lucide-react'
+import { getDB } from '@/lib/db'
+import StorefrontHeader from '@/components/storefront/StorefrontHeader'
 
 interface Category {
-  id: number; name: string; slug: string; parent_id: number | null;
-  parentId: number | null; description: string | null; image: string | null;
-  position: number; is_active: number; created_at: string; product_count: number; icon?: string;
+  id: number
+  name: string
+  slug: string
+  product_count: number
 }
 
 interface Product {
-  id: number; title: string; slug: string; description: string | null;
-  content: string | null; type: string; price: number; compare_price: number | null;
-  cost_price: number | null; sku: string | null; barcode: string | null;
-  stock: number; stock_alert: number; category_id: number | null;
-  brand: string | null; status: string; visibility: string; password: string | null;
-  published_at: string | null; scheduled_at: string | null; featured: number;
-  weight: number | null; dimensions: string | null; file_path: string | null;
-  file_size: string | null; file_format: string | null; download_limit: number;
-  download_expires_days: number; validity_start_date: string | null;
-  validity_end_date: string | null; validity_duration_days: number;
-  validity_duration_unit: string; has_auto_renewal: number; renewal_price: number | null;
-  base_currency: string; price_usd: number | null; price_eur: number | null;
-  price_gbp: number | null; license_validity_days: number; license_quantity: number;
-  group_id: string | null; group_link: string | null; require_phone: number;
-  course_id: number | null; event_id: number | null; event_date: string | null;
-  event_link: string | null; credits_amount: number; subscription_interval: string | null;
-  subscription_trial_days: number; consultation_duration: number; affiliate_commission: number;
-  meta_title: string | null; meta_description: string | null; meta_keywords: string | null;
-  avg_rating: number; total_reviews: number; sales_count: number;
-  created_at: string; updated_at: string; created_by: number | null; updated_by: number | null;
-  main_image: string | null; review_count: number; is_new?: number;
+  id: number
+  title: string
+  slug: string
+  price: number
+  compare_price: number | null
+  main_image: string | null
+  avg_rating: number | null
+  review_count: number
+  sales_count: number
 }
 
-interface Banner {
-  id: number; title: string; description: string | null; media_type: string;
-  media_url: string; video_url: string | null; link_url: string | null;
-  position: number; is_active: number; starts_at: string | null;
-  ends_at: string | null; created_at: string; updated_at: string;
+const productQuery = `
+  SELECT p.id, p.title, p.slug, p.price, p.compare_price,
+    (SELECT url FROM product_images WHERE product_id = p.id AND is_main = 1 LIMIT 1) AS main_image,
+    (SELECT AVG(rating) FROM reviews WHERE product_id = p.id AND status = 'approved') AS avg_rating,
+    (SELECT COUNT(*) FROM reviews WHERE product_id = p.id AND status = 'approved') AS review_count,
+    (SELECT COUNT(*) FROM order_items WHERE product_id = p.id) AS sales_count
+  FROM products p
+  WHERE p.status = 'published'
+`
+
+function formatPrice(price: number) {
+  return `${Number(price || 0).toLocaleString('fr-FR')} FCFA`
 }
 
-interface SeasonalMessage {
-  id: number; title: string; content: string; icon: string | null;
-  theme: string | null; is_active: number; starts_at: string | null;
-  ends_at: string | null; position: number; created_at: string; updated_at: string;
+function ProductShelf({ title, description, products, href = '/products' }: { title: string; description: string; products: Product[]; href?: string }) {
+  if (!products.length) return null
+  return (
+    <section className="mt-10 sm:mt-12">
+      <div className="mb-4 flex items-end justify-between gap-4">
+        <div><h2 className="text-xl font-bold tracking-tight text-slate-950 sm:text-2xl">{title}</h2><p className="mt-1 text-sm text-slate-600">{description}</p></div>
+        <Link href={href} className="shrink-0 text-sm font-semibold text-blue-700 hover:text-blue-900">Voir tout <ChevronRight className="inline" size={16} /></Link>
+      </div>
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 sm:gap-4 lg:grid-cols-4">
+        {products.map((product) => {
+          const hasDiscount = product.compare_price != null && product.compare_price > product.price
+          const discount = hasDiscount ? Math.round((1 - product.price / product.compare_price!) * 100) : 0
+          return (
+            <Link key={product.id} href={`/product/${product.slug}`} className="group overflow-hidden rounded-md border border-slate-200 bg-white transition hover:border-slate-300 hover:shadow-md">
+              <div className="relative aspect-square bg-slate-100">
+                {product.main_image ? <Image src={product.main_image} alt={product.title} fill sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 25vw" className="object-cover transition duration-300 group-hover:scale-[1.02]" /> : <div className="flex h-full items-center justify-center text-sm text-slate-400">Image non disponible</div>}
+                {discount > 0 && <span className="absolute left-2 top-2 rounded-sm bg-red-700 px-2 py-1 text-xs font-semibold text-white">-{discount}%</span>}
+              </div>
+              <div className="p-3 sm:p-4">
+                <h3 className="line-clamp-2 min-h-10 text-sm font-medium leading-5 text-slate-900 group-hover:text-blue-800">{product.title}</h3>
+                {Number(product.avg_rating) > 0 && <p className="mt-1 text-xs text-amber-700">★ {Number(product.avg_rating).toFixed(1)} <span className="text-slate-500">({product.review_count} avis)</span></p>}
+                <div className="mt-2 flex flex-wrap items-baseline gap-x-2 gap-y-1">
+                  <span className="font-bold text-slate-950">{formatPrice(product.price)}</span>
+                  {hasDiscount && <span className="text-xs text-slate-500 line-through">{formatPrice(product.compare_price!)}</span>}
+                </div>
+              </div>
+            </Link>
+          )
+        })}
+      </div>
+    </section>
+  )
 }
-
-// ============================================================
-// MÉTADONNÉES
-// ============================================================
 
 export const metadata = {
-  title: 'TorrentTwist – Produits numériques premium à prix imbattables',
-  description: 'Découvrez des formations, templates, logiciels et ressources numériques. Livraison instantanée, satisfait ou remboursé 30 jours.',
-  keywords: 'produits numériques, formation, templates, logiciels, TorrentTwist',
-  openGraph: {
-    title: 'TorrentTwist – Produits numériques premium',
-    description: 'Livraison instantanée · Satisfait ou remboursé 30 jours · Support 24/7',
-    url: 'https://torrenttwist.com',
-    siteName: 'TorrentTwist',
-    images: [{ url: 'https://torrenttwist.com/og-image.jpg', width: 1200, height: 630 }],
-    locale: 'fr_FR',
-    type: 'website',
-  },
-};
+  title: 'Boutique | TorrentTwist',
+  description: 'Parcourez les produits numériques TorrentTwist et trouvez une ressource adaptée à votre projet.',
+}
 
-// ============================================================
-// PAGE PRINCIPALE
-// ============================================================
-
-export default async function HomePage() {
-  const db = await getDB();
-
-  const headersList = headers();
-  const userAgent = headersList.get('user-agent') || '';
-  let device: 'desktop' | 'tablet' | 'mobile' = 'desktop';
-  if (/mobile/i.test(userAgent)) device = 'mobile';
-  else if (/tablet/i.test(userAgent)) device = 'tablet';
-
-  // 1. Campagnes actives
-  const campaigns = await getActiveCampaigns(device);
-  const carouselSlides: Slide[] = campaigns.flatMap((campaign, campaignIndex) =>
-    (campaign.slides ?? []).map((slide: any, slideIndex: number) => ({
-      id: slide.id ?? `${campaign.id ?? campaignIndex}-${slideIndex}`,
-      type: 'campaign' as const,
-      title: slide.title || campaign.name,
-      description: slide.subtitle || '',
-      link_url: slide.cta_value || '',
-      campaign_slides: campaign.slides ?? [],
-      media_url: slide.media_url || '',
-    }))
-  );
-
-  let fallbackSlides: Slide[] = [];
-  if (carouselSlides.length === 0) {
-    const banners = await db.all<Banner>(`
-      SELECT * FROM banners 
-      WHERE is_active = 1 
-      AND (starts_at <= datetime('now') OR starts_at IS NULL)
-      AND (ends_at >= datetime('now') OR ends_at IS NULL)
-      ORDER BY position ASC
-    `);
-    fallbackSlides = banners.map(b => ({
-      id: b.id,
-      type: b.media_type === 'video' ? 'video' : 'image',
-      media_url: b.media_url,
-      video_url: b.video_url,
-      title: b.title,
-      description: b.description,
-      link_url: b.link_url,
-    }));
-  }
-  const slides = carouselSlides.length > 0 ? carouselSlides : fallbackSlides;
-
-  // 2. Messages saisonniers
-  const seasonalMessages = await db.all<SeasonalMessage>(`
-    SELECT * FROM seasonal_messages 
-    WHERE is_active = 1 
-    AND (starts_at <= datetime('now') OR starts_at IS NULL)
-    AND (ends_at >= datetime('now') OR ends_at IS NULL)
-    ORDER BY position ASC
-  `);
-
-  // 3. Catégories
-  const categories = await db.all<Category>(`
-    SELECT c.*,
-      (SELECT COUNT(*) FROM products WHERE category_id = c.id AND status = 'published') as product_count
-    FROM categories c
-    WHERE c.is_active = 1 AND c.parent_id IS NULL
-    ORDER BY c.position ASC, c.name ASC
-    LIMIT 6
-  `);
-
-  // 4. Nouveautés → TOUS les produits
-  const newProducts = await db.all<Product>(`
-    SELECT p.*,
-      (SELECT url FROM product_images WHERE product_id = p.id AND is_main = 1 LIMIT 1) as main_image,
-      (SELECT AVG(rating) FROM reviews WHERE product_id = p.id) as avg_rating,
-      (SELECT COUNT(*) FROM reviews WHERE product_id = p.id) as review_count,
-      (SELECT COUNT(*) FROM order_items WHERE product_id = p.id) as sales_count,
-      1 as is_new
-    FROM products p
-    WHERE p.status = 'published'
-    ORDER BY p.created_at DESC
-  `);
-
-  // 5. Promotions → TOUS les produits en promo
-  const promoProducts = await db.all<Product>(`
-    SELECT p.*,
-      (SELECT url FROM product_images WHERE product_id = p.id AND is_main = 1 LIMIT 1) as main_image,
-      (SELECT AVG(rating) FROM reviews WHERE product_id = p.id) as avg_rating,
-      (SELECT COUNT(*) FROM reviews WHERE product_id = p.id) as review_count,
-      (SELECT COUNT(*) FROM order_items WHERE product_id = p.id) as sales_count
-    FROM products p
-    WHERE p.status = 'published' AND p.compare_price IS NOT NULL
-    ORDER BY (p.compare_price - p.price) DESC
-  `);
-
-  // 6. Populaires → TOUS les produits
-  const popularProducts = await db.all<Product>(`
-    SELECT p.*,
-      (SELECT url FROM product_images WHERE product_id = p.id AND is_main = 1 LIMIT 1) as main_image,
-      (SELECT AVG(rating) FROM reviews WHERE product_id = p.id) as avg_rating,
-      (SELECT COUNT(*) FROM reviews WHERE product_id = p.id) as review_count,
-      (SELECT COUNT(*) FROM order_items WHERE product_id = p.id) as sales_count
-    FROM products p
-    WHERE p.status = 'published'
-    ORDER BY sales_count DESC
-  `);
-
-  // 7. IA → TOUS les produits (algorithme réordonne à chaque visite)
-  const aiProducts = await getAIRecommendations(undefined, 9999);
-
-  // 8. Tendances → TOUS les produits
-  const trendingProducts = await getTrendingProducts(9999);
-
-  // 9. Meilleures ventes → TOUS les produits
-  const bestSellers = await db.all<Product>(`
-    SELECT p.*,
-      (SELECT url FROM product_images WHERE product_id = p.id AND is_main = 1 LIMIT 1) as main_image,
-      (SELECT AVG(rating) FROM reviews WHERE product_id = p.id) as avg_rating,
-      (SELECT COUNT(*) FROM reviews WHERE product_id = p.id) as review_count,
-      (SELECT COUNT(*) FROM order_items WHERE product_id = p.id) as sales_count
-    FROM products p
-    WHERE p.status = 'published'
-    ORDER BY sales_count DESC
-  `);
-
-  // 10. Avis
-  const reviewCountResult = await db.get<{ count: number }>(`
-    SELECT COUNT(*) as count FROM reviews WHERE status = 'approved' AND is_visible = 1
-  `);
-  const hasRealReviews = (reviewCountResult?.count || 0) > 0;
-
-  // 11. Statistiques globales pour la crédibilité
-  const globalStats = await db.get<{ total_orders: number; total_users: number; avg_rating: number }>(`
-    SELECT 
-      (SELECT COUNT(*) FROM orders WHERE payment_status = 'paid') as total_orders,
-      (SELECT COUNT(*) FROM users WHERE is_active = 1) as total_users,
-      (SELECT AVG(rating) FROM reviews WHERE status = 'approved') as avg_rating
-  `);
-
-  // 12. Produits "flash sale" (top 3 promos — garde LIMIT 3 pour la bannière)
-  const flashSaleProducts = await db.all<Product>(`
-    SELECT p.*,
-      (SELECT url FROM product_images WHERE product_id = p.id AND is_main = 1 LIMIT 1) as main_image,
-      (SELECT AVG(rating) FROM reviews WHERE product_id = p.id) as avg_rating,
-      (SELECT COUNT(*) FROM reviews WHERE product_id = p.id) as review_count,
-      (SELECT COUNT(*) FROM order_items WHERE product_id = p.id) as sales_count
-    FROM products p
-    WHERE p.status = 'published' AND p.compare_price IS NOT NULL
-    ORDER BY (p.compare_price - p.price) DESC
-    LIMIT 3
-  `);
-
-  // 13. Bundle deal (3 produits aléatoires — garde LIMIT 3 pour le bundle)
-  const bundleProducts = await db.all<Product>(`
-    SELECT p.*,
-      (SELECT url FROM product_images WHERE product_id = p.id AND is_main = 1 LIMIT 1) as main_image
-    FROM products p
-    WHERE p.status = 'published'
-    ORDER BY RANDOM()
-    LIMIT 3
-  `);
-
-  // Mapping catégories → icônes
-  const categoryIconMap: Record<string, string> = {
-    'Informatique': 'code', 'Musique': 'music', 'Vidéo': 'video',
-    'E-books': 'book', 'Shopping': 'shopping', 'Photographie': 'camera',
-    'Design': 'pen', 'Santé': 'heart', 'Café': 'coffee',
-    'Business': 'briefcase', 'Téléphonie': 'smartphone', 'Jeux': 'gamepad',
-  };
-
-  const categoriesWithIcons = categories.map((cat) => {
-    const iconName = categoryIconMap[cat.name] || 'sparkles';
-    const { description, ...rest } = cat;
-    return {
-      ...rest,
-      ...(description !== null && description !== undefined ? { description } : {}),
-      parentId: cat.parent_id ?? cat.parentId ?? null,
-      icon: iconName,
-    };
-  });
-
-  // ============================================================
-  // RENDU
-  // ============================================================
+export default async function StorePage() {
+  const db = await getDB()
+  const [categories, newest, popular, offers] = await Promise.all([
+    db.all<Category>(`SELECT c.id, c.name, c.slug, COUNT(p.id) AS product_count FROM categories c LEFT JOIN products p ON p.category_id = c.id AND p.status = 'published' WHERE c.is_active = 1 AND c.parent_id IS NULL GROUP BY c.id ORDER BY c.position ASC, c.name ASC LIMIT 8`),
+    db.all<Product>(`${productQuery} ORDER BY p.created_at DESC LIMIT 8`),
+    db.all<Product>(`${productQuery} ORDER BY sales_count DESC, p.created_at DESC LIMIT 8`),
+    db.all<Product>(`${productQuery} AND p.compare_price IS NOT NULL AND p.compare_price > p.price ORDER BY (p.compare_price - p.price) DESC LIMIT 8`),
+  ])
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-gray-50 to-white overflow-x-hidden">
-      <AppHeaderWrapper />
-
-      <SocialProofTicker />
-
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 sm:py-6 md:py-8">
-
-        {flashSaleProducts.length > 0 && (
-          <FlashSaleBanner products={flashSaleProducts} />
-        )}
-
-        <div className="mb-4 sm:mb-6 md:mb-8">
-          <SearchBar />
+    <div className="min-h-screen bg-slate-50 text-slate-900">
+      <StorefrontHeader />
+      <main className="mx-auto max-w-7xl px-4 py-7 sm:px-6 sm:py-10 lg:px-8">
+        <div className="mb-7 flex flex-wrap items-end justify-between gap-4">
+          <div><p className="text-sm font-semibold text-blue-700">TorrentTwist · Boutique</p><h1 className="mt-1 text-2xl font-bold tracking-tight text-slate-950 sm:text-3xl">Trouvez votre prochaine ressource</h1><p className="mt-2 max-w-2xl text-sm leading-6 text-slate-600">Explorez les produits numériques, consultez leur description et choisissez selon votre besoin et votre budget.</p></div>
+          <Link href="/products" className="inline-flex items-center gap-2 rounded-md border border-slate-300 bg-white px-4 py-2.5 text-sm font-semibold text-slate-800 hover:bg-slate-100">Tout le catalogue <ArrowRight size={16} /></Link>
         </div>
 
-        {seasonalMessages.length > 0 && (
-          <div className="mb-4 sm:mb-6 md:mb-8">
-            <div className="flex flex-wrap gap-2 sm:gap-3 justify-center">
-              {seasonalMessages.map((msg) => (
-                <div
-                  key={msg.id}
-                  className="flex items-center gap-2 sm:gap-3 px-3 sm:px-4 md:px-6 py-2 sm:py-3 bg-gradient-to-r from-red-50 to-pink-50 border border-red-200 rounded-xl sm:rounded-2xl shadow-sm w-full sm:w-auto max-w-full"
-                >
-                  <Gift className="w-5 h-5 sm:w-6 sm:h-6 text-red-500 flex-shrink-0" />
-                  <div className="min-w-0 flex-1">
-                    <h3 className="font-bold text-gray-800 text-sm sm:text-base truncate">{msg.title}</h3>
-                    <p className="text-xs sm:text-sm text-gray-600 truncate">{msg.content}</p>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
-
-        <TrustBadges
-          orders={globalStats?.total_orders || 0}
-          users={globalStats?.total_users || 0}
-          rating={globalStats?.avg_rating || 0}
-        />
-
-        <section className="mb-6 sm:mb-8 md:mb-12">
-          <CarouselHero slides={slides} autoplayInterval={5} />
-        </section>
-
-        <LiveActivity />
-
-        <div className="mb-6 sm:mb-8 md:mb-12">
-          <CategoryShowcase
-            categories={categoriesWithIcons}
-            title="Catégories"
-            subtitle="Parcourez nos catégories de produits"
-            variant="default"
-            itemsPerRow={{ mobile: 2, tablet: 3, desktop: 6 }}
-          />
+        <div className="grid gap-3 rounded-md border border-slate-200 bg-white p-4 sm:grid-cols-3 sm:p-5">
+          <div className="flex gap-3"><BookOpen size={19} className="mt-0.5 shrink-0 text-blue-700" /><div><p className="text-sm font-semibold">Choisissez votre format</p><p className="mt-1 text-xs leading-5 text-slate-600">Guides, formations et autres ressources disponibles au catalogue.</p></div></div>
+          <div className="flex gap-3"><BadgeCheck size={19} className="mt-0.5 shrink-0 text-emerald-700" /><div><p className="text-sm font-semibold">Consultez avant d’acheter</p><p className="mt-1 text-xs leading-5 text-slate-600">Chaque fiche produit détaille le contenu, le prix et les avis disponibles.</p></div></div>
+          <div className="flex gap-3"><Download size={19} className="mt-0.5 shrink-0 text-blue-700" /><div><p className="text-sm font-semibold">Retrouvez vos achats</p><p className="mt-1 text-xs leading-5 text-slate-600">Les produits numériques achetés sont accessibles depuis votre espace client.</p></div></div>
         </div>
 
-        <LimitedStockAlert products={popularProducts.slice(0, 3)} />
+        {categories.length > 0 && <section className="mt-8"><div className="mb-3 flex items-center gap-2"><Layers3 size={19} className="text-slate-700" /><h2 className="text-lg font-bold text-slate-950">Parcourir les catégories</h2></div><div className="flex gap-2 overflow-x-auto pb-2">{categories.map((category) => <Link key={category.id} href={`/category/${category.slug}`} className="shrink-0 rounded-full border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 hover:border-slate-500 hover:bg-slate-100">{category.name}<span className="ml-2 text-xs text-slate-500">{category.product_count}</span></Link>)}</div></section>}
 
-        <ProductSection
-          title="✨ Nouveautés"
-          subtitle="Découvrez les derniers produits ajoutés"
-          icon={<Sparkles className="w-5 h-5 sm:w-6 sm:h-6 text-blue-600" />}
-          products={newProducts}
-          viewAllLink="/products?sort=newest"
-          showBadge="new"
-          itemsPerRow={{ mobile: 2, tablet: 3, desktop: 4, large: 5 }}
-        />
+        <ProductShelf title="Les nouveautés" description="Les derniers produits ajoutés à la boutique." products={newest} href="/products?sort=newest" />
+        <ProductShelf title="Les plus consultés par les acheteurs" description="Une sélection classée selon les commandes enregistrées." products={popular} href="/products?sort=popular" />
+        {offers.length > 0 && <ProductShelf title="Offres en cours" description="Produits avec un prix promotionnel affiché." products={offers} href="/products?promo=true" />}
 
-        {bundleProducts.length >= 2 && (
-          <ProductBundleDeal products={bundleProducts} />
-        )}
-
-        <BeforeAfterValue />
-
-        {hasRealReviews ? (
-          <div className="mb-6 sm:mb-8 md:mb-12">
-            <ReviewsShowcase
-              limit={6}
-              title="💬 Ce que nos clients disent"
-              subtitle="Des témoignages authentiques de nos acheteurs"
-              variant="featured"
-              autoPlay={true}
-              interval={7000}
-            />
-          </div>
-        ) : (
-          <div className="mb-6 sm:mb-8 md:mb-12">
-            <Testimonials />
-          </div>
-        )}
-
-        <div className="mb-6 sm:mb-8 md:mb-12">
-          <Features />
-        </div>
-
-        <MoneyBackGuarantee />
-
-        <div className="mb-6 sm:mb-8 md:mb-12">
-          <Newsletter />
-        </div>
+        {!newest.length && <div className="mt-10 rounded-md border border-slate-200 bg-white p-8 text-center"><Tag className="mx-auto text-slate-400" size={28} /><h2 className="mt-3 font-semibold">Le catalogue se prépare</h2><p className="mt-1 text-sm text-slate-600">Aucun produit publié pour le moment. Revenez bientôt.</p></div>}
       </main>
-
-      <footer className="bg-gray-900 text-white mt-8 md:mt-16">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8 md:py-12">
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-6 md:gap-8">
-            <div className="col-span-2 md:col-span-1">
-              <h3 className="font-bold text-base sm:text-lg mb-2 md:mb-4">TorrentTwist</h3>
-              <p className="text-gray-400 text-sm">Plateforme de vente de produits numériques.</p>
-              <div className="flex gap-2 mt-3">
-                <span className="px-2 py-1 bg-emerald-500/20 text-emerald-400 text-xs rounded-full flex items-center gap-1">
-                  <Shield className="w-3 h-3" /> Paiement sécurisé
-                </span>
-              </div>
-            </div>
-            <div>
-              <h4 className="font-semibold text-sm md:text-base mb-3">Liens rapides</h4>
-              <ul className="space-y-2 text-sm text-gray-400">
-                <li><Link href="/products" className="hover:text-white transition">Catalogue</Link></li>
-                <li><Link href="/categories" className="hover:text-white transition">Catégories</Link></li>
-                <li><Link href="/about" className="hover:text-white transition">À propos</Link></li>
-              </ul>
-            </div>
-            <div>
-              <h4 className="font-semibold text-sm md:text-base mb-3">Support</h4>
-              <ul className="space-y-2 text-sm text-gray-400">
-                <li><Link href="/faq" className="hover:text-white transition">FAQ</Link></li>
-                <li><Link href="/contact" className="hover:text-white transition">Contact</Link></li>
-              </ul>
-            </div>
-            <div>
-              <h4 className="font-semibold text-sm md:text-base mb-3">Suivez-nous</h4>
-              <div className="flex flex-wrap gap-3 text-sm text-gray-400">
-                <a href="#" className="hover:text-white transition">Facebook</a>
-                <a href="#" className="hover:text-white transition">Twitter</a>
-                <a href="#" className="hover:text-white transition">Instagram</a>
-              </div>
-            </div>
-          </div>
-          <div className="border-t border-gray-800 mt-6 md:mt-8 pt-6 text-center text-sm text-gray-500">
-            &copy; {new Date().getFullYear()} TorrentTwist. Tous droits réservés.
-          </div>
-        </div>
-      </footer>
-
-      <NewsletterAgent />
+      <footer className="mt-12 bg-slate-950 px-4 py-8 text-sm text-slate-300"><div className="mx-auto flex max-w-7xl flex-col justify-between gap-3 sm:flex-row sm:items-center"><p>© {new Date().getFullYear()} TorrentTwist</p><div className="flex gap-5"><Link href="/" className="hover:text-white">Accueil</Link><Link href="/support" className="hover:text-white">Support</Link><Link href="/login" className="hover:text-white">Mon compte</Link></div></div></footer>
     </div>
-  );
+  )
 }
