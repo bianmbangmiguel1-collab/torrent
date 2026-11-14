@@ -1,0 +1,18 @@
+/* Scoped store styling. Admin and account routes retain their own visual systems. */
+.storefront-theme {
+  min-height: 100vh;
+  color: #0f172a;
+  background: #f7f9fc;
+}
+.storefront-theme input,
+.storefront-theme select,
+.storefront-theme textarea {
+  color: #0f172a;
+}
+.storefront-theme input::placeholder,
+.storefront-theme textarea::placeholder {
+  color: #94a3b8;
+}
+.storefront-theme :focus-visible {
+  outline-color: rgba(29, 78, 216, .55);
+}
