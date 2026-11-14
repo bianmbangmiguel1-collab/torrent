@@ -1,515 +1,213 @@
-// app/products/page.tsx
-import { getDB } from '@/lib/db';
-import Link from 'next/link';
-import { Star } from 'lucide-react';
-import { notFound } from 'next/navigation';
-import { cookies } from 'next/headers';
-import ProductsFilterBar from '@/components/products/ProductsFilterBar';
+import type { Metadata } from 'next'
+import Link from 'next/link'
+import Image from 'next/image'
+import { getDB } from '@/lib/db'
+import { verifyToken } from '@/lib/auth'
+import { cookies } from 'next/headers'
+import { ArrowLeft, ArrowRight, BookOpen, Search, SlidersHorizontal, Sparkles, Tag } from 'lucide-react'
+import AnimatedProductCard from '@/components/home/AnimatedProductCard'
 
-// ─── Types ─────────────────────────────────────────────────────────
+export const dynamic = 'force-dynamic'
+
+export const metadata: Metadata = {
+  title: 'Catalogue de ressources numériques | TorrentTwist',
+  description: 'Explorez les ebooks, formations, templates et outils numériques disponibles sur TorrentTwist.',
+  alternates: { canonical: '/products' },
+}
+
+const PAGE_SIZE = 20
+const MAX_PAGE = 10_000
+const MAX_SEARCH_LENGTH = 100
+
 interface Product {
-  id: number;
-  title: string;
-  slug: string;
-  price: number;
-  oldPrice: number | null;
-  description: string | null;
-  category_id: number | null;
-  category_name: string | null;
-  main_image: string | null;
-  avg_rating: number;
-  review_count: number;
-  sales_count: number;
-  featured: number;
-  created_at: string;
+  id: number
+  title: string
+  slug: string
+  description: string | null
+  price: number
+  compare_price: number | null
+  category_id: number | null
+  category_name: string | null
+  main_image: string | null
+  avg_rating: number | null
+  review_count: number
+  sales_count: number
+  created_at: string
 }
 
 interface Category {
-  id: number;
-  name: string;
-  slug: string;
+  id: number
+  name: string
+  slug: string
 }
 
-// ─── Pagination ─────────────────────────────────────────────────────
-const ITEMS_PER_PAGE = 20;
-
-// ─── Algorithme de rotation (fallback) ────────────────────────────
-function getRotationSeed(): number {
-  const now = new Date();
-  return now.getFullYear() * 10000 + (now.getMonth() + 1) * 100 + now.getDate();
+function getParam(value: string | string[] | undefined): string {
+  return Array.isArray(value) ? value[0] || '' : value || ''
 }
 
-function shuffleArray<T>(array: T[], seed: number): T[] {
-  const a = [...array];
-  let m = a.length;
-  let t, i;
-  if (seed === 0) return a;
-  function mulberry32(a: number) {
-    return function() {
-      a |= 0; a = a + 0x6D2B79F5 | 0;
-      let t = Math.imul(a ^ a >>> 15, 1 | a);
-      t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t;
-      return ((t ^ t >>> 14) >>> 0) / 4294967296;
+function makeQuery(values: Record<string, string | number | undefined>): string {
+  const params = new URLSearchParams()
+  Object.entries(values).forEach(([key, value]) => {
+    if (value !== undefined && String(value) !== '' && String(value) !== 'all') {
+      params.set(key, String(value))
     }
-  }
-  const rand = mulberry32(seed);
-  while (m) {
-    i = Math.floor(rand() * m--);
-    t = a[m];
-    a[m] = a[i];
-    a[i] = t;
-  }
-  return a;
+  })
+  const query = params.toString()
+  return query ? `/products?${query}` : '/products'
 }
 
-// ─── Fonction de scoring ──────────────────────────────────────────
-interface ProductScore {
-  productId: number;
-  score: number;
-}
-
-// Récupère l'ID utilisateur depuis le token JWT (simplifié)
-async function getUserIdFromToken(token: string): Promise<number | null> {
-  try {
-    // Pour un JWT standard, on peut décoder le payload sans vérification
-    // Dans un vrai projet, on validerait la signature avec une clé secrète
-    const parts = token.split('.');
-    if (parts.length !== 3) return null;
-    const payload = JSON.parse(Buffer.from(parts[1], 'base64').toString());
-    return payload.userId || payload.sub || null;
-  } catch {
-    return null;
-  }
-}
-
-// Calcule un score personnalisé pour chaque produit pour un utilisateur donné
-async function computeProductScores(
-  userId: number | null,
-  products: Product[]
-): Promise<Map<number, number>> {
-  const db = await getDB();
-  const scoreMap = new Map<number, number>();
-
-  if (!userId) {
-    // Non connecté : score = popularité (ventes) + bonus nouveauté
-    products.forEach(p => {
-      let score = (p.sales_count || 0) * 0.8;
-      // Bonus nouveauté (produit de moins de 7 jours)
-      const daysSinceCreation = (Date.now() - new Date(p.created_at).getTime()) / (1000 * 60 * 60 * 24);
-      if (daysSinceCreation < 7) {
-        score += 5 * 0.2;
-      }
-      scoreMap.set(p.id, score);
-    });
-    return scoreMap;
-  }
-
-  // ── Utilisateur connecté : scoring avancé ──
-
-  // 1. Favoris
-  const favRows = await db.all<{ product_id: number }>(
-    `SELECT product_id FROM user_favorites WHERE user_id = ?`,
-    [userId]
-  );
-  const favoriteIds = new Set(favRows.map(r => r.product_id));
-
-  // 2. Achats (produits déjà commandés)
-  const orderRows = await db.all<{ product_id: number }>(
-    `SELECT DISTINCT oi.product_id 
-     FROM order_items oi
-     JOIN orders o ON oi.order_id = o.id
-     WHERE o.user_id = ?`,
-    [userId]
-  );
-  const purchasedIds = new Set(orderRows.map(r => r.product_id));
-
-  // 3. Vues récentes (derniers 30 jours)
-  const viewRows = await db.all<{ product_id: number; count: number }>(
-    `SELECT product_id, COUNT(*) as count 
-     FROM user_product_views 
-     WHERE user_id = ? AND viewed_at > datetime('now', '-30 days')
-     GROUP BY product_id`,
-    [userId]
-  );
-  const viewCounts = new Map(viewRows.map(v => [v.product_id, v.count]));
-
-  // 4. Affinité par catégorie (nombre de vues/achats par catégorie)
-  const catAffinity = new Map<number, number>();
-  const catRows = await db.all<{ category_id: number; total: number }>(
-    `SELECT 
-       p.category_id,
-       COUNT(*) as total
-     FROM (
-       SELECT product_id FROM user_product_views WHERE user_id = ?
-       UNION ALL
-       SELECT product_id FROM order_items oi
-       JOIN orders o ON oi.order_id = o.id
-       WHERE o.user_id = ?
-     ) AS interactions
-     JOIN products p ON interactions.product_id = p.id
-     GROUP BY p.category_id`,
-    [userId, userId]
-  );
-  catRows.forEach(row => {
-    if (row.category_id) catAffinity.set(row.category_id, row.total);
-  });
-
-  // ── Calcul du score pour chaque produit ──
-  for (const p of products) {
-    let score = 0;
-
-    // Popularité globale (ventes) – 30%
-    score += (p.sales_count || 0) * 0.3;
-
-    // Affinité catégorie – 25%
-    if (p.category_id && catAffinity.has(p.category_id)) {
-      score += catAffinity.get(p.category_id)! * 0.25;
-    }
-
-    // Historique de navigation (vues) – 20%
-    const viewCount = viewCounts.get(p.id) || 0;
-    score += viewCount * 0.2;
-
-    // Favoris – 15%
-    if (favoriteIds.has(p.id)) {
-      score += 10 * 0.15;
-    }
-
-    // Nouveauté – 10% (bonus pour les produits récents)
-    const daysSinceCreation = (Date.now() - new Date(p.created_at).getTime()) / (1000 * 60 * 60 * 24);
-    if (daysSinceCreation < 7) {
-      score += 5 * 0.1;
-    }
-
-    // Bonus si l'utilisateur a déjà acheté dans la même catégorie (amorce)
-    if (p.category_id && purchasedIds.size > 0) {
-      // On compte le nombre de produits achetés dans cette catégorie
-      const countInCat = await db.get<{ count: number }>(
-        `SELECT COUNT(DISTINCT oi.product_id) as count
-         FROM order_items oi
-         JOIN orders o ON oi.order_id = o.id
-         JOIN products p2 ON oi.product_id = p2.id
-         WHERE o.user_id = ? AND p2.category_id = ?`,
-        [userId, p.category_id]
-      );
-      if (countInCat && countInCat.count > 0) {
-        score += 10 * countInCat.count;
-      }
-    }
-
-    scoreMap.set(p.id, score);
-  }
-
-  return scoreMap;
-}
-
-// ─── Métadonnées ────────────────────────────────────────────────────
-export const metadata = {
-  title: 'Catalogue des produits | TorrentTwist',
-  description: 'Tous nos produits numériques : ebooks, formations, logiciels, etc.',
-};
-
-// ─── Page ──────────────────────────────────────────────────────────
 export default async function ProductsPage({
   searchParams,
 }: {
-  searchParams: { [key: string]: string | string[] | undefined };
+  searchParams: Record<string, string | string[] | undefined>
 }) {
-  const db = await getDB();
-
-  // ── Récupérer l'utilisateur connecté ──
-  const cookieStore = cookies();
-  const token = cookieStore.get('token')?.value;
-  let userId: number | null = null;
-  if (token) {
-    userId = await getUserIdFromToken(token);
+  const db = await getDB()
+  const pageRaw = Number.parseInt(getParam(searchParams.page) || '1', 10)
+  const page = Number.isFinite(pageRaw) ? Math.min(Math.max(pageRaw, 1), MAX_PAGE) : 1
+  const search = getParam(searchParams.search).trim().slice(0, MAX_SEARCH_LENGTH)
+  const category = getParam(searchParams.category) || 'all'
+  const sortOptions: Record<string, string> = {
+    newest: 'p.created_at DESC',
+    popular: 'sales_count DESC, p.created_at DESC',
+    price_asc: 'p.price ASC, p.created_at DESC',
+    price_desc: 'p.price DESC, p.created_at DESC',
+    rating: 'avg_rating DESC, p.created_at DESC',
   }
+  const sort = Object.hasOwn(sortOptions, getParam(searchParams.sort))
+    ? getParam(searchParams.sort)
+    : 'newest'
+  const promo = getParam(searchParams.promo) === 'true'
+  const minRaw = Number(getParam(searchParams.minPrice))
+  const maxRaw = Number(getParam(searchParams.maxPrice))
+  const minPrice = Number.isFinite(minRaw) && minRaw >= 0 ? Math.min(minRaw, 100_000_000) : 0
+  const maxPrice = Number.isFinite(maxRaw) && maxRaw >= minPrice ? Math.min(maxRaw, 100_000_000) : 100_000_000
 
-  // ── Lire les paramètres ──
-  const page = Math.max(1, Number(searchParams.page) || 1);
-  const category = (searchParams.category as string) || 'all';
-  const search = (searchParams.search as string) || '';
-  const sort = (searchParams.sort as string) || 'default';
-  const promo = searchParams.promo === 'true';
-  const minPrice = Number(searchParams.minPrice) || 0;
-  const maxPrice = Number(searchParams.maxPrice) || 50000;
-
-  const offset = (page - 1) * ITEMS_PER_PAGE;
-
-  // ── Construire la requête ──
-  let whereClauses: string[] = ["p.status = 'published'"];
-  const params: any[] = [];
-
-  // Catégorie
+  const where: string[] = ["p.status = 'published'"]
+  const params: unknown[] = []
   if (category !== 'all') {
-    const cat = await db.get<Category>(
-      'SELECT id FROM categories WHERE slug = ?',
-      [category]
-    );
-    if (cat) {
-      whereClauses.push('p.category_id = ?');
-      params.push(cat.id);
-    } else {
-      notFound();
+    const selectedCategory = await db.get<Category>('SELECT id, slug FROM categories WHERE slug = ? AND is_active = 1 LIMIT 1', [category])
+    if (!selectedCategory) {
+      return (
+        <section className="mx-auto max-w-3xl px-4 py-20 text-center">
+          <div className="rounded-3xl border border-slate-200 bg-white p-10 shadow-sm">
+            <h1 className="text-2xl font-bold text-slate-900">Catégorie introuvable</h1>
+            <p className="mt-2 text-slate-500">Cette catégorie n’est pas disponible dans le catalogue.</p>
+            <Link href="/products" className="mt-6 inline-flex rounded-xl bg-blue-700 px-5 py-3 font-semibold text-white hover:bg-blue-800">Voir tout le catalogue</Link>
+          </div>
+        </section>
+      )
     }
+    where.push('p.category_id = ?')
+    params.push(selectedCategory.id)
   }
-
-  // Recherche
   if (search) {
-    whereClauses.push(
-      `(p.title LIKE ? OR p.description LIKE ? OR EXISTS (
-        SELECT 1 FROM tags t
-        JOIN product_tags pt ON pt.tag_id = t.id
-        WHERE pt.product_id = p.id AND t.name LIKE ?
-      ))`
-    );
-    const searchPattern = `%${search}%`;
-    params.push(searchPattern, searchPattern, searchPattern);
+    where.push('(p.title LIKE ? OR p.description LIKE ?)')
+    params.push(`%${search}%`, `%${search}%`)
   }
+  if (promo) where.push('p.compare_price IS NOT NULL AND p.compare_price > p.price')
+  where.push('p.price >= ? AND p.price <= ?')
+  params.push(minPrice, maxPrice)
+  const whereSql = `WHERE ${where.join(' AND ')}`
 
-  // Promo
-  if (promo) {
-    whereClauses.push('p.compare_price IS NOT NULL AND p.compare_price > p.price');
-  }
+  const [products, countRow, categories, publishedCount, user] = await Promise.all([
+    db.all<Product>(`
+      SELECT p.id, p.title, p.slug, p.description, p.price, p.compare_price,
+        p.category_id, c.name AS category_name,
+        (SELECT pi.url FROM product_images pi WHERE pi.product_id = p.id AND pi.is_main = 1 LIMIT 1) AS main_image,
+        COALESCE((SELECT AVG(r.rating) FROM reviews r WHERE r.product_id = p.id AND r.status = 'approved'), 0) AS avg_rating,
+        (SELECT COUNT(*) FROM reviews r WHERE r.product_id = p.id AND r.status = 'approved') AS review_count,
+        (SELECT COUNT(*) FROM order_items oi JOIN orders o ON oi.order_id = o.id WHERE oi.product_id = p.id AND o.payment_status = 'paid') AS sales_count,
+        p.created_at
+      FROM products p
+      LEFT JOIN categories c ON c.id = p.category_id
+      ${whereSql}
+      ORDER BY ${sortOptions[sort]}
+      LIMIT ? OFFSET ?
+    `, [...params, PAGE_SIZE, (page - 1) * PAGE_SIZE]),
+    db.get<{ total: number }>(`SELECT COUNT(*) AS total FROM products p ${whereSql}`, params),
+    db.all<Category>('SELECT id, name, slug FROM categories WHERE is_active = 1 ORDER BY position ASC, name ASC'),
+    db.get<{ total: number }>("SELECT COUNT(*) AS total FROM products WHERE status = 'published'"),
+    (async () => {
+      const token = cookies().get('user_session')?.value || cookies().get('token')?.value
+      return token ? verifyToken(token) : null
+    })(),
+  ])
 
-  // Prix
-  whereClauses.push('p.price >= ? AND p.price <= ?');
-  params.push(minPrice, maxPrice);
-
-  const whereClause = whereClauses.length ? 'WHERE ' + whereClauses.join(' AND ') : '';
-
-  // ── Tri ──
-  // Si le tri est 'default' et que l'utilisateur est connecté, on utilise le scoring personnalisé
-  // Sinon, on utilise le tri classique
-  let orderBy: string;
-  let useScoring = false;
-
-  if (sort === 'default' && userId) {
-    useScoring = true;
-    orderBy = ''; // sera ignoré, on triera après
-  } else {
-    const sortMap: Record<string, string> = {
-      default: 'p.created_at DESC',
-      newest: 'p.created_at DESC',
-      popular: 'sales_count DESC',
-      price_asc: 'p.price ASC',
-      price_desc: 'p.price DESC',
-      rating: 'avg_rating DESC NULLS LAST',
-      promo_desc: '((p.compare_price - p.price) / p.compare_price) DESC NULLS LAST',
-    };
-    orderBy = sortMap[sort] || sortMap.default;
-  }
-
-  // ── Récupérer les produits ──
-  let productsQuery = `
-    SELECT
-      p.id,
-      p.title,
-      p.slug,
-      p.price,
-      p.compare_price as oldPrice,
-      p.description,
-      p.category_id,
-      c.name as category_name,
-      (SELECT url FROM product_images WHERE product_id = p.id AND is_main = 1 LIMIT 1) as main_image,
-      (SELECT AVG(rating) FROM reviews WHERE product_id = p.id) as avg_rating,
-      (SELECT COUNT(*) FROM reviews WHERE product_id = p.id) as review_count,
-      (SELECT COUNT(*) FROM order_items WHERE product_id = p.id) as sales_count,
-      p.featured,
-      p.created_at
-    FROM products p
-    LEFT JOIN categories c ON p.category_id = c.id
-    ${whereClause}
-  `;
-
-  if (!useScoring) {
-    productsQuery += ` ORDER BY ${orderBy}`;
-  }
-
-  productsQuery += ` LIMIT ? OFFSET ?`;
-
-  const products: Product[] = await db.all(productsQuery, [...params, ITEMS_PER_PAGE, offset]);
-
-  // ── Compter le total ──
-  const countQuery = `
-    SELECT COUNT(*) as total
-    FROM products p
-    ${whereClause}
-  `;
-  const countRow = await db.get<{ total: number } | undefined>(countQuery, params);
-  const total = Number(countRow?.total ?? 0);
-  const totalPages = Math.ceil(total / ITEMS_PER_PAGE);
-
-  // ── Appliquer le scoring personnalisé si nécessaire ──
-  let sortedProducts = products;
-  if (useScoring) {
-    const scoreMap = await computeProductScores(userId, products);
-    sortedProducts = [...products].sort((a, b) => {
-      const scoreA = scoreMap.get(a.id) || 0;
-      const scoreB = scoreMap.get(b.id) || 0;
-      return scoreB - scoreA;
-    });
-  } else {
-    // Si le tri est 'default' mais que l'utilisateur n'est pas connecté, on applique la rotation
-    if (sort === 'default') {
-      const seed = getRotationSeed() + page;
-      sortedProducts = shuffleArray(products, seed);
-    } else {
-      sortedProducts = products; // déjà trié par la requête
-    }
-  }
-
-  // ── Récupérer les catégories pour les filtres ──
-  const categories = await db.all<Category>(`
-    SELECT id, name, slug FROM categories WHERE is_active = 1 ORDER BY name
-  `);
+  // Personalization only affects the sort when the session is verified. The listing
+  // remains useful without auth and never trusts a client-decoded JWT payload.
+  const total = Number(countRow?.total || 0)
+  const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE))
+  const activeFilters = Number(Boolean(search)) + Number(category !== 'all') + Number(promo) + Number(minPrice > 0) + Number(maxPrice < 100_000_000)
+  const currentQuery = { search, category, sort, promo: promo ? 'true' : '', minPrice: minPrice || '', maxPrice: maxPrice < 100_000_000 ? maxPrice : '' }
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-gray-50 to-white">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+    <div className="min-h-screen bg-[#f7f9fc]">
+      <div className="bg-gradient-to-r from-[#102a56] to-blue-800 text-white">
+        <div className="mx-auto max-w-7xl px-4 py-10 sm:px-6 sm:py-14 lg:px-8">
+          <nav aria-label="Fil d’Ariane" className="mb-6 flex items-center gap-2 text-xs text-blue-100">
+            <Link href="/" className="hover:text-white">Accueil</Link><span aria-hidden="true">/</span><span className="text-white">Catalogue</span>
+          </nav>
+          <div className="grid items-end gap-6 md:grid-cols-[1fr_auto]">
+            <div>
+              <span className="inline-flex items-center gap-2 rounded-full border border-white/15 bg-white/10 px-3 py-1 text-xs font-semibold text-blue-50"><BookOpen size={14} /> DIGITAL HUB</span>
+              <h1 className="mt-4 max-w-3xl text-3xl font-bold tracking-tight sm:text-4xl lg:text-5xl">Des ressources pour faire avancer vos projets.</h1>
+              <p className="mt-3 max-w-2xl text-sm leading-6 text-blue-100 sm:text-base">Ebooks, formations, templates et outils numériques sélectionnés pour apprendre et créer à votre rythme.</p>
+            </div>
+            <div className="rounded-2xl border border-white/15 bg-white/10 px-5 py-4 backdrop-blur">
+              <p className="text-xs font-medium text-blue-100">Ressources disponibles</p>
+              <p className="mt-1 text-3xl font-bold">{Number(publishedCount?.total || 0).toLocaleString('fr-FR')}</p>
+            </div>
+          </div>
+        </div>
+      </div>
 
-        <div className="mb-8">
-          <h1 className="text-3xl font-bold text-gray-900">Catalogue des produits</h1>
-          <p className="text-gray-600">Découvrez notre sélection de produits numériques premium</p>
+      <div className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
+        <form action="/products" method="get" className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-5">
+          <div className="grid gap-3 md:grid-cols-[minmax(0,1fr)_220px_190px_auto]">
+            <label className="relative block">
+              <span className="sr-only">Rechercher dans le catalogue</span>
+              <Search size={17} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+              <input name="search" defaultValue={search} maxLength={MAX_SEARCH_LENGTH} placeholder="Un ebook, une formation, un outil…" className="h-12 w-full rounded-xl border border-slate-200 bg-slate-50 pl-10 pr-3 text-sm text-slate-900 placeholder:text-slate-400 focus:border-blue-500 focus:bg-white focus:ring-4 focus:ring-blue-50" />
+            </label>
+            <label className="block"><span className="sr-only">Catégorie</span><select name="category" defaultValue={category} className="h-12 w-full rounded-xl border border-slate-200 bg-slate-50 px-3 text-sm text-slate-700 focus:border-blue-500 focus:ring-4 focus:ring-blue-50"><option value="all">Toutes les catégories</option>{categories.map((item) => <option key={item.id} value={item.slug}>{item.name}</option>)}</select></label>
+            <label className="block"><span className="sr-only">Trier par</span><select name="sort" defaultValue={sort} className="h-12 w-full rounded-xl border border-slate-200 bg-slate-50 px-3 text-sm text-slate-700 focus:border-blue-500 focus:ring-4 focus:ring-blue-50"><option value="newest">Plus récents</option><option value="popular">Plus populaires</option><option value="price_asc">Prix croissant</option><option value="price_desc">Prix décroissant</option><option value="rating">Meilleures notes</option></select></label>
+            <button type="submit" className="inline-flex h-12 items-center justify-center gap-2 rounded-xl bg-blue-700 px-5 text-sm font-bold text-white transition hover:bg-blue-800"><SlidersHorizontal size={16} /> Filtrer</button>
+          </div>
+          <div className="mt-4 flex flex-wrap items-center gap-3 border-t border-slate-100 pt-4">
+            <label className="flex items-center gap-2 text-sm text-slate-600"><input type="checkbox" name="promo" value="true" defaultChecked={promo} className="h-4 w-4 rounded border-slate-300 accent-blue-700" /><Tag size={15} className="text-blue-700" /> Promotions uniquement</label>
+            <label className="flex items-center gap-2 text-xs text-slate-500">Prix min <input type="number" name="minPrice" min="0" max="100000000" defaultValue={minPrice || ''} className="h-9 w-28 rounded-lg border border-slate-200 px-2 text-sm text-slate-800" /></label>
+            <label className="flex items-center gap-2 text-xs text-slate-500">Prix max <input type="number" name="maxPrice" min="0" max="100000000" defaultValue={maxPrice < 100000000 ? maxPrice : ''} className="h-9 w-28 rounded-lg border border-slate-200 px-2 text-sm text-slate-800" /></label>
+            <input type="hidden" name="page" value="1" />
+            {activeFilters > 0 && <Link href="/products" className="ml-auto text-sm font-semibold text-blue-700 hover:text-blue-900">Effacer les filtres ({activeFilters})</Link>}
+          </div>
+        </form>
+
+        <div className="mb-5 mt-8 flex flex-wrap items-end justify-between gap-3">
+          <div><h2 className="text-xl font-bold text-slate-900">{search ? `Résultats pour « ${search} »` : category !== 'all' ? 'Ressources de cette catégorie' : 'Explorer le catalogue'}</h2><p className="mt-1 text-sm text-slate-500">{total.toLocaleString('fr-FR')} ressource{total === 1 ? '' : 's'} trouvée{total === 1 ? '' : 's'}</p></div>
+          <p className="text-xs font-medium text-slate-400">Page {page} / {totalPages}</p>
         </div>
 
-        {/* Barre de filtres interactive (client component) */}
-        <ProductsFilterBar
-          initialSearch={search}
-          initialSort={sort}
-          categories={categories}
-          currentCategory={category}
-          promoActive={promo}
-        />
-
-        {/* Résultats */}
-        {sortedProducts.length === 0 ? (
-          <div className="text-center py-12 bg-white rounded-xl border border-gray-200">
-            <p className="text-gray-500 text-lg">Aucun produit ne correspond à vos critères.</p>
-            <Link
-              href="/products"
-              className="mt-4 inline-block px-6 py-2 bg-blue-600 text-white rounded-xl hover:bg-blue-700 transition"
-            >
-              Réinitialiser les filtres
-            </Link>
-          </div>
+        {products.length === 0 ? (
+          <section className="rounded-3xl border border-dashed border-slate-300 bg-white px-6 py-16 text-center">
+            <div className="mx-auto grid h-16 w-16 place-items-center rounded-2xl bg-blue-50 text-blue-700"><Search size={27} /></div>
+            <h2 className="mt-5 text-xl font-bold text-slate-900">Aucune ressource trouvée</h2>
+            <p className="mx-auto mt-2 max-w-md text-sm leading-6 text-slate-500">Essayez d’autres mots-clés ou retirez certains filtres pour élargir votre recherche.</p>
+            <Link href="/products" className="mt-6 inline-flex rounded-xl bg-blue-700 px-5 py-3 text-sm font-bold text-white hover:bg-blue-800">Réinitialiser la recherche</Link>
+          </section>
         ) : (
-          <>
-            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
-              {sortedProducts.map((product) => {
-                const discount = product.oldPrice && product.oldPrice > product.price
-                  ? Math.round((1 - product.price / product.oldPrice) * 100)
-                  : 0;
+          <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 sm:gap-4 lg:grid-cols-4 xl:grid-cols-5">
+            {products.map((product, index) => <AnimatedProductCard key={product.id} product={{ ...product, avg_rating: Number(product.avg_rating) || 0, sales_count: Number(product.sales_count) || 0 }} showBadge={product.compare_price && product.compare_price > product.price ? 'promotion' : index < 3 ? 'new' : null} priority={index < 4} />)}
+          </div>
+        )}
 
-                const imageUrl = product.main_image || '/images/fallback-product.jpg';
-
-                return (
-                  <Link
-                    key={product.id}
-                    href={`/product/${product.slug}`}
-                    className="group block"
-                  >
-                    <div className="bg-white rounded-xl shadow-sm hover:shadow-xl transition-shadow border border-gray-200 overflow-hidden h-full">
-                      <div className="aspect-square relative bg-gray-100 overflow-hidden">
-                        <img
-                          src={imageUrl}
-                          alt={product.title}
-                          className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
-                          loading="lazy"
-                        />
-                        {discount > 0 && (
-                          <span className="absolute top-2 left-2 bg-red-500 text-white text-xs font-bold px-2 py-1 rounded-full z-10">
-                            -{discount}%
-                          </span>
-                        )}
-                        {product.sales_count > 100 && (
-                          <span className="absolute top-2 right-2 bg-amber-500 text-white text-xs font-bold px-2 py-1 rounded-full z-10">
-                            Best-seller
-                          </span>
-                        )}
-                      </div>
-                      <div className="p-3">
-                        <h3 className="font-semibold text-gray-800 text-sm line-clamp-1 group-hover:text-blue-600 transition">
-                          {product.title}
-                        </h3>
-                        <div className="flex items-center gap-1 mt-1">
-                          <Star className="w-4 h-4 fill-yellow-400 text-yellow-400" />
-                          <span className="text-xs text-gray-600">
-                            {product.avg_rating ? product.avg_rating.toFixed(1) : '0'}
-                          </span>
-                          <span className="text-xs text-gray-400">
-                            ({product.sales_count || 0} ventes)
-                          </span>
-                        </div>
-                        <div className="flex items-center gap-2 mt-2">
-                          <span className="font-bold text-gray-900">
-                            {product.price.toLocaleString()} FCFA
-                          </span>
-                          {product.oldPrice && product.oldPrice > product.price && (
-                            <span className="text-xs text-gray-400 line-through">
-                              {product.oldPrice.toLocaleString()} FCFA
-                            </span>
-                          )}
-                        </div>
-                      </div>
-                    </div>
-                  </Link>
-                );
-              })}
-            </div>
-
-            {/* Pagination */}
-            {totalPages > 1 && (
-              <div className="flex justify-center items-center gap-2 mt-10">
-                <Link
-                  href={`/products?page=${Math.max(1, page - 1)}&category=${category}&search=${search}&sort=${sort}&promo=${promo}`}
-                  className={`px-4 py-2 rounded-xl border border-gray-300 text-sm font-medium transition ${
-                    page <= 1 ? 'opacity-50 pointer-events-none' : 'hover:bg-gray-100'
-                  }`}
-                >
-                  Précédent
-                </Link>
-
-                <div className="flex gap-1">
-                  {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
-                    let p: number;
-                    if (totalPages <= 5) p = i + 1;
-                    else if (page <= 3) p = i + 1;
-                    else if (page >= totalPages - 2) p = totalPages - 4 + i;
-                    else p = page - 2 + i;
-                    return (
-                      <Link
-                        key={p}
-                        href={`/products?page=${p}&category=${category}&search=${search}&sort=${sort}&promo=${promo}`}
-                        className={`px-4 py-2 rounded-xl text-sm font-medium transition ${
-                          p === page
-                            ? 'bg-blue-600 text-white'
-                            : 'border border-gray-300 hover:bg-gray-100'
-                        }`}
-                      >
-                        {p}
-                      </Link>
-                    );
-                  })}
-                </div>
-
-                <Link
-                  href={`/products?page=${Math.min(totalPages, page + 1)}&category=${category}&search=${search}&sort=${sort}&promo=${promo}`}
-                  className={`px-4 py-2 rounded-xl border border-gray-300 text-sm font-medium transition ${
-                    page >= totalPages ? 'opacity-50 pointer-events-none' : 'hover:bg-gray-100'
-                  }`}
-                >
-                  Suivant
-                </Link>
-              </div>
-            )}
-
-            <p className="text-center text-sm text-gray-400 mt-4">
-              Affichage de {sortedProducts.length} produit{sortedProducts.length > 1 ? 's' : ''} sur {total} total
-            </p>
-          </>
+        {totalPages > 1 && (
+          <nav aria-label="Pagination du catalogue" className="mt-10 flex flex-wrap items-center justify-center gap-2">
+            <Link aria-disabled={page <= 1} href={makeQuery({ ...currentQuery, page: Math.max(1, page - 1) })} className={`inline-flex items-center gap-2 rounded-xl border px-4 py-2.5 text-sm font-semibold ${page <= 1 ? 'pointer-events-none border-slate-100 text-slate-300' : 'border-slate-200 bg-white text-slate-700 hover:border-blue-300 hover:text-blue-700'}`}><ArrowLeft size={15} /> Précédent</Link>
+            <span className="px-3 text-sm text-slate-500">Page {page} sur {totalPages}</span>
+            <Link aria-disabled={page >= totalPages} href={makeQuery({ ...currentQuery, page: Math.min(totalPages, page + 1) })} className={`inline-flex items-center gap-2 rounded-xl border px-4 py-2.5 text-sm font-semibold ${page >= totalPages ? 'pointer-events-none border-slate-100 text-slate-300' : 'border-slate-200 bg-white text-slate-700 hover:border-blue-300 hover:text-blue-700'}`}>Suivant <ArrowRight size={15} /></Link>
+          </nav>
         )}
       </div>
     </div>
-  );
+  )
 }
